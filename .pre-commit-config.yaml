@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-file-size
+        name: Check file size (components max 200 lines, composables max 300 lines)
+        entry: .pre-commit-hooks/check-file-size.sh
+        language: script
+        types_or: [vue, ts, javascript]
