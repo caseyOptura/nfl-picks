@@ -13,7 +13,7 @@ const initials = computed(() => {
 </script>
 
 <template>
-  <div class="player-row">
+  <NuxtLink :to="`/players/${athlete.id}`" class="player-row">
     <div class="headshot-wrap">
       <img
         v-if="athlete.headshot?.href"
@@ -26,9 +26,9 @@ const initials = computed(() => {
 
     <div class="player-info">
       <div class="player-name-line">
-        <span class="jersey" v-if="athlete.jersey">#{{ athlete.jersey }}</span>
+        <span v-if="athlete.jersey" class="jersey">#{{ athlete.jersey }}</span>
         <span class="full-name">{{ athlete.fullName }}</span>
-        <span class="position" v-if="athlete.position?.abbreviation">{{ athlete.position.abbreviation }}</span>
+        <span v-if="athlete.position?.abbreviation" class="position">{{ athlete.position.abbreviation }}</span>
       </div>
       <div class="player-details">
         <span v-if="athlete.age != null">Age {{ athlete.age }}</span>
@@ -38,7 +38,9 @@ const initials = computed(() => {
         <span v-if="athlete.college?.name">{{ athlete.college.name }}</span>
       </div>
     </div>
-  </div>
+
+    <span class="chevron" aria-hidden="true">›</span>
+  </NuxtLink>
 </template>
 
 <style scoped>
@@ -46,8 +48,16 @@ const initials = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.25rem;
   border-bottom: 1px solid #1a1a1a;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.player-row:hover {
+  background: #111;
 }
 
 .headshot-wrap {
@@ -80,6 +90,7 @@ const initials = computed(() => {
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
+  flex: 1;
 }
 
 .player-name-line {
@@ -117,5 +128,11 @@ const initials = computed(() => {
   gap: 0.5rem;
   font-size: 0.72rem;
   color: #666;
+}
+
+.chevron {
+  color: #444;
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 </style>
