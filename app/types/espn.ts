@@ -50,12 +50,18 @@ export interface ScoreboardCompetition {
   venue?: EspnVenue
   status: EspnStatus
 }
+export interface ScoreboardSeason {
+  year: number
+  type: number        // 2 = regular season, 3 = post-season
+  slug: string        // 'regular-season' | 'post-season'
+}
 export interface ScoreboardEvent {
   id: string
   date: string
   name: string
   shortName: string
   week?: { number: number }
+  season?: ScoreboardSeason
   status: EspnStatus
   competitions: ScoreboardCompetition[]
 }
@@ -138,6 +144,8 @@ export interface GameView {
   kickoffUtc: string
   isFinal: boolean
   isInProgress: boolean
+  isPlayoff: boolean
+  playoffRound?: string   // 'Wild Card' | 'Divisional Round' | 'Conference Championship' | 'Super Bowl'
   week?: number
   venue?: string
   home: GameSideView
