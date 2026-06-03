@@ -130,6 +130,69 @@ export interface RosterGroup {
 }
 export interface RosterResponse { athletes: RosterGroup[] }
 
+// Athlete detail (site.api.espn.com/athletes/{id})
+export interface AthleteTeam {
+  id: string
+  abbreviation?: string
+  displayName?: string
+  logos?: EspnLogo[]
+  color?: string
+  alternateColor?: string
+}
+
+export interface AthleteDetail {
+  id: string
+  fullName: string
+  displayName: string
+  firstName?: string
+  lastName?: string
+  jersey?: string
+  position?: { abbreviation: string; displayName: string; name?: string }
+  age?: number
+  displayWeight?: string
+  displayHeight?: string
+  displayExperience?: string
+  displayBirthPlace?: string
+  displayDraft?: string
+  displayDOB?: string
+  debutYear?: number
+  headshot?: { href: string; alt?: string }
+  college?: { name: string; shortName?: string; abbrev?: string }
+  status?: { name: string; type: string }
+  team?: AthleteTeam
+}
+
+// Player statistics (sports.core.api.espn.com)
+export interface StatValue {
+  name: string
+  displayName: string
+  shortDisplayName?: string
+  abbreviation?: string
+  value: number | null
+  displayValue: string
+}
+
+export interface StatsCategory {
+  name: string
+  displayName: string
+  shortDisplayName?: string
+  abbreviation?: string
+  summary?: string
+  stats: StatValue[]
+}
+
+export interface PlayerStatsResponse {
+  splits?: {
+    categories?: StatsCategory[]
+  }
+}
+
+// Position-grouped roster view model
+export interface PositionGroup {
+  label: string
+  players: RosterAthlete[]
+}
+
 // View models returned by composables
 export interface GameSideView {
   teamId: string

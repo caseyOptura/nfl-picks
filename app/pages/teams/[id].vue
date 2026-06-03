@@ -2,11 +2,14 @@
 const route = useRoute()
 const teamId = route.params.id as string
 const { team, completedGames, upcomingGames, pending, error, refresh } = useTeamSchedule(teamId)
-const { groups, pending: rosterPending, error: rosterError, refresh: rosterRefresh } = useTeamRoster(teamId)
-const showRoster = ref(false)
+const { positionGroups, pending: rosterPending, error: rosterError, refresh: rosterRefresh } = useTeamRoster(teamId)
 
-function toggleRoster() {
-  showRoster.value = !showRoster.value
+const TABS = ['Schedule', 'Stats', 'Roster'] as const
+type Tab = typeof TABS[number]
+const activeTab = ref<Tab>('Schedule')
+
+function setTab(tab: string) {
+  if (TABS.includes(tab as Tab)) activeTab.value = tab as Tab
 }
 </script>
 
@@ -16,27 +19,31 @@ function toggleRoster() {
     <ErrorState v-else-if="error" :message="error.message" @retry="refresh" />
     <template v-else-if="team">
       <TeamHeader :team="team" />
-      <section class="games-section">
-        <h2>Completed Games</h2>
-        <EmptyState v-if="completedGames.length === 0" message="No completed games" />
-        <GameRow v-for="game in completedGames" :key="game.id" :game="game" />
-      </section>
-      <section class="games-section">
-        <h2>Upcoming Games</h2>
-        <EmptyState v-if="upcomingGames.length === 0" message="No upcoming games" />
-        <GameRow v-for="game in upcomingGames" :key="game.id" :game="game" />
-      </section>
-      <section class="roster-section">
-        <button class="roster-toggle" @click="toggleRoster">
-          {{ showRoster ? 'Hide Roster' : 'Show Roster' }}
-        </button>
-        <template v-if="showRoster">
-          <LoadingState v-if="rosterPending" message="Loading roster…" />
-          <ErrorState v-else-if="rosterError" :message="rosterError.message" @retry="rosterRefresh" />
-          <EmptyState v-else-if="groups.length === 0" message="No roster available" />
-          <RosterPanel v-else :groups="groups" />
-        </template>
-      </section>
+      <TabBar :tabs="['Schedule', 'Stats', 'Roster']" :active="activeTab" @change="setTab" />
+
+      <template v-if="activeTab === 'Schedule'">
+        <section class="games-section">
+          <h2>Completed Games</h2>
+          <EmptyState v-if="completedGames.length === 0" message="No completed games" />
+          <GameRow v-for="game in completedGames" :key="game.id" :game="game" />
+        </section>
+        <section class="games-section">
+          <h2>Upcoming Games</h2>
+          <EmptyState v-if="upcomingGames.length === 0" message="No upcoming games" />
+          <GameRow v-for="game in upcomingGames" :key="game.id" :game="game" />
+        </section>
+      </template>
+
+      <template v-else-if="activeTab === 'Stats'">
+        <TeamStatsPanel :team="team" :team-id="teamId" :completed-games="completedGames" />
+      </template>
+
+      <template v-else-if="activeTab === 'Roster'">
+        <LoadingState v-if="rosterPending" message="Loading roster…" />
+        <ErrorState v-else-if="rosterError" :message="rosterError.message" @retry="rosterRefresh" />
+        <EmptyState v-else-if="positionGroups.length === 0" message="No roster available" />
+        <RosterPanel v-else :groups="positionGroups" />
+      </template>
     </template>
   </main>
 </template>
@@ -57,23 +64,5 @@ h2 {
 
 .games-section {
   margin-bottom: 2rem;
-}
-
-.roster-section {
-  margin-top: 2rem;
-}
-
-.roster-toggle {
-  padding: 0.5rem 1.25rem;
-  background: #222;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-
-.roster-toggle:hover {
-  background: #333;
 }
 </style>
