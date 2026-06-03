@@ -2,14 +2,15 @@
 import type { GameView } from '~/types/espn'
 
 defineProps<{
-  week: number
+  week?: number
+  label?: string
   games: GameView[]
 }>()
 </script>
 
 <template>
   <section class="week-section">
-    <h2 class="week-heading">Week {{ week }}</h2>
+    <h2 class="week-heading">{{ label ?? `Week ${week}` }}</h2>
     <GameRow v-for="game in games" :key="game.id" :game="game" />
   </section>
 </template>
