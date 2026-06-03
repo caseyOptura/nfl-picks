@@ -1,0 +1,3 @@
+export default defineEventHandler(() =>
+  $fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams')
+)
