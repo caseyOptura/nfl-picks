@@ -1,9 +1,16 @@
+<script setup lang="ts">
+const { isLoggedIn } = useAuth()
+</script>
+
 <template>
   <div>
     <NuxtRouteAnnouncer />
     <nav>
       <NuxtLink to="/schedule">Schedule</NuxtLink>
       <NuxtLink to="/teams">Teams</NuxtLink>
+      <div class="nav-spacer" />
+      <NavAvatarMenu v-if="isLoggedIn" />
+      <NuxtLink v-else to="/login">Log in</NuxtLink>
     </nav>
     <NuxtPage />
   </div>
@@ -19,6 +26,7 @@ h2 { font-size: 1rem; font-weight: 700; color: #ccc; margin-bottom: 0.5rem; }
 <style scoped>
 nav {
   display: flex;
+  align-items: center;
   gap: 1.5rem;
   padding: 0.875rem 1rem;
   background: #111;
@@ -35,4 +43,5 @@ nav :deep(a.router-link-active) {
   color: #fff;
   border-bottom: 2px solid #fff;
 }
+.nav-spacer { flex: 1; }
 </style>
