@@ -31,6 +31,9 @@ nav {
   padding: 0.875rem 1rem;
   background: #111;
   border-bottom: 1px solid #222;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 nav :deep(a) {
   color: #999;
