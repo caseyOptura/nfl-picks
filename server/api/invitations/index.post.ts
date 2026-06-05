@@ -54,7 +54,8 @@ export default defineEventHandler(async (event) => {
     || 'A friend'
 
   const config = useRuntimeConfig(event)
-  const inviteUrl = `${config.public.siteUrl}/invite/${invitation.token}`
+  const baseUrl = config.public.siteUrl || getRequestURL(event).origin
+  const inviteUrl = `${baseUrl}/invite/${invitation.token}`
 
   await sendInvitationEmail(event, {
     to: email,
