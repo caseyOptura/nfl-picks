@@ -1,3 +1,5 @@
+import { serverSupabaseServiceRole } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const body = await readBody<{ leagueId?: string; email?: string }>(event)
