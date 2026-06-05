@@ -28,7 +28,60 @@ begin
 end;
 $$;
 
--- 2. Security-definer helper functions (prevents RLS infinite recursion)
+-- 2. Create tables first (helper functions reference them, so tables must exist first)
+
+create table public.leagues (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  season_year  int  not null,
+  photo_url    text,
+  created_by   uuid not null references auth.users(id) on delete cascade,
+  created_at   timestamptz not null default now()
+);
+
+create table public.league_members (
+  id         uuid primary key default gen_random_uuid(),
+  league_id  uuid not null references public.leagues(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  role       text not null default 'member' check (role in ('owner','member')),
+  joined_at  timestamptz not null default now(),
+  unique (league_id, user_id)
+);
+
+create index idx_league_members_league_id on public.league_members(league_id);
+create index idx_league_members_user_id on public.league_members(user_id);
+
+create table public.picks (
+  id               uuid primary key default gen_random_uuid(),
+  league_id        uuid not null references public.leagues(id) on delete cascade,
+  user_id          uuid not null references auth.users(id) on delete cascade,
+  game_id          text not null,
+  picked_team_id   text not null,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+  unique (league_id, user_id, game_id)
+);
+
+create index idx_picks_league_id on public.picks(league_id);
+create index idx_picks_user_id on public.picks(user_id);
+
+create table public.invitations (
+  id           uuid primary key default gen_random_uuid(),
+  league_id    uuid not null references public.leagues(id) on delete cascade,
+  email        text not null,
+  token        uuid not null default gen_random_uuid() unique,
+  invited_by   uuid not null references auth.users(id) on delete cascade,
+  status       text not null default 'pending' check (status in ('pending','accepted','revoked')),
+  created_at   timestamptz not null default now(),
+  accepted_at  timestamptz
+);
+
+create index idx_invitations_league_id on public.invitations(league_id);
+create index idx_invitations_token on public.invitations(token);
+
+-- 3. Security-definer helper functions (tables exist now — no forward-reference error)
+--    These prevent RLS infinite recursion on league_members policies.
+
 create or replace function public.is_league_member(p_league_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -53,15 +106,7 @@ as $$
   );
 $$;
 
--- 3. leagues table
-create table public.leagues (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  season_year  int  not null,
-  photo_url    text,
-  created_by   uuid not null references auth.users(id) on delete cascade,
-  created_at   timestamptz not null default now()
-);
+-- 4. RLS policies
 
 alter table public.leagues enable row level security;
 
@@ -81,22 +126,8 @@ create policy "League owner can delete league"
   on public.leagues for delete
   using (public.is_league_owner(id, auth.uid()));
 
--- 4. league_members table
-create table public.league_members (
-  id         uuid primary key default gen_random_uuid(),
-  league_id  uuid not null references public.leagues(id) on delete cascade,
-  user_id    uuid not null references auth.users(id) on delete cascade,
-  role       text not null default 'member' check (role in ('owner','member')),
-  joined_at  timestamptz not null default now(),
-  unique (league_id, user_id)
-);
-
-create index idx_league_members_league_id on public.league_members(league_id);
-create index idx_league_members_user_id on public.league_members(user_id);
-
 alter table public.league_members enable row level security;
 
--- RLS policies use is_league_member() helper to avoid infinite recursion
 create policy "League members can view membership"
   on public.league_members for select
   using (public.is_league_member(league_id, auth.uid()));
@@ -108,21 +139,6 @@ create policy "League owner can insert members"
 create policy "League owner can delete members"
   on public.league_members for delete
   using (public.is_league_owner(league_id, auth.uid()) and user_id != auth.uid());
-
--- 5. picks table
-create table public.picks (
-  id               uuid primary key default gen_random_uuid(),
-  league_id        uuid not null references public.leagues(id) on delete cascade,
-  user_id          uuid not null references auth.users(id) on delete cascade,
-  game_id          text not null,
-  picked_team_id   text not null,
-  created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now(),
-  unique (league_id, user_id, game_id)
-);
-
-create index idx_picks_league_id on public.picks(league_id);
-create index idx_picks_user_id on public.picks(user_id);
 
 alter table public.picks enable row level security;
 
@@ -138,21 +154,6 @@ create policy "User can update own picks"
   on public.picks for update
   using (user_id = auth.uid() and public.is_league_member(league_id, auth.uid()));
 
--- 6. invitations table
-create table public.invitations (
-  id           uuid primary key default gen_random_uuid(),
-  league_id    uuid not null references public.leagues(id) on delete cascade,
-  email        text not null,
-  token        uuid not null default gen_random_uuid() unique,
-  invited_by   uuid not null references auth.users(id) on delete cascade,
-  status       text not null default 'pending' check (status in ('pending','accepted','revoked')),
-  created_at   timestamptz not null default now(),
-  accepted_at  timestamptz
-);
-
-create index idx_invitations_league_id on public.invitations(league_id);
-create index idx_invitations_token on public.invitations(token);
-
 alter table public.invitations enable row level security;
 
 create policy "League members can view invitations"
@@ -167,7 +168,7 @@ create policy "Inviter can update invitation"
   on public.invitations for update
   using (invited_by = auth.uid() or public.is_league_owner(league_id, auth.uid()));
 
--- 7. profiles SELECT policy for co-members (needed for leaderboard display)
+-- 5. profiles SELECT policy for co-members (needed for leaderboard display)
 create policy "League co-members are viewable"
   on public.profiles for select
   using (
@@ -180,7 +181,7 @@ create policy "League co-members are viewable"
     )
   );
 
--- 8. Trigger: auto-insert owner row in league_members when a league is created
+-- 6. Trigger: auto-insert owner row in league_members when a league is created
 create or replace function public.handle_new_league()
 returns trigger
 language plpgsql
