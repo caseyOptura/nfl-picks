@@ -13,5 +13,13 @@ export default defineNuxtConfig({
   },
   routeRules: {
     '/': { redirect: '/schedule' }
-  }
+  },
+  runtimeConfig: {
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY ?? '',
+    resendApiKey: process.env.RESEND_API_KEY ?? '',
+    inviteFromEmail: process.env.INVITE_FROM_EMAIL ?? '',
+    public: {
+      siteUrl: process.env.PUBLIC_SITE_URL ?? 'http://localhost:3000',
+    },
+  },
 })
