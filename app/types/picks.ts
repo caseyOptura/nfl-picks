@@ -59,9 +59,17 @@ export interface LeaderboardEntry {
   rank: number
 }
 
+export interface MemberPickSummary {
+  userId: string
+  displayName: string
+  avatarUrl: string | null
+  pickedTeamId: string
+}
+
 export interface PickableGame {
   game: import('~/types/espn').GameView
   pickedTeamId: string | null
   locked: boolean
   correct: boolean | null
+  memberPicks: MemberPickSummary[]
 }
