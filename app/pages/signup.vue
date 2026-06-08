@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { randomNickname } from '~/composables/funnyNicknames'
 
+const route = useRoute()
 const { signUp } = useAuth()
+const redirectAfterConfirm = computed(() => route.query.redirect as string | undefined)
 
 const firstName = ref('')
 const lastName = ref('')
@@ -24,7 +26,7 @@ async function handleSubmit() {
     first_name: firstName.value,
     last_name: lastName.value,
     nickname: nickname.value,
-  })
+  }, redirectAfterConfirm.value)
   loading.value = false
   if (!result.ok) {
     error.value = result.error
@@ -40,7 +42,7 @@ async function handleSubmit() {
       <h1 class="page-title">Check your inbox</h1>
       <p class="confirm-message">
         We sent a confirmation link to <strong>{{ confirmedEmail }}</strong>.
-        Click the link in that email to activate your account.
+        Click the link in that email to activate your account{{ redirectAfterConfirm ? ' and join your league' : '' }}.
       </p>
       <div class="auth-links">
         <NuxtLink to="/login">Back to log in</NuxtLink>

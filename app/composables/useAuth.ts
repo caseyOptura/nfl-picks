@@ -18,13 +18,16 @@ export function useAuth() {
   async function signUp(
     email: string,
     password: string,
-    profile: { first_name: string; last_name: string; nickname: string }
+    profile: { first_name: string; last_name: string; nickname: string },
+    redirectAfterConfirm?: string
   ): Promise<AuthResult> {
+    const confirmUrl = new URL(window.location.origin + '/confirm')
+    if (redirectAfterConfirm) confirmUrl.searchParams.set('redirect', redirectAfterConfirm)
     const { data, error } = await client.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin + '/confirm',
+        emailRedirectTo: confirmUrl.toString(),
         data: profile,
       },
     })

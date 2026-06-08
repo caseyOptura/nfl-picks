@@ -14,15 +14,22 @@ export default defineEventHandler(async (event) => {
   await assertMember(service, leagueId, user.id)
 
   // Check if email is already a member
-  const { data: existingMember } = await service
-    .from('league_members')
-    .select('user_id, profiles!inner(email)')
-    .eq('league_id', leagueId)
-    .eq('profiles.email', email.toLowerCase())
+  const { data: profileWithEmail } = await service
+    .from('profiles')
+    .select('id')
+    .eq('email', email.toLowerCase())
     .maybeSingle()
 
-  if (existingMember) {
-    return { ok: true, invitationId: null, alreadyMember: true }
+  if (profileWithEmail) {
+    const { data: existingMember } = await service
+      .from('league_members')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('user_id', profileWithEmail.id)
+      .maybeSingle()
+    if (existingMember) {
+      return { ok: true, invitationId: null, alreadyMember: true }
+    }
   }
 
   // Check for existing pending invitation
