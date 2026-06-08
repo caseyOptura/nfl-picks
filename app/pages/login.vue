@@ -24,7 +24,7 @@ async function handleSubmit({ email, password }: { email: string; password: stri
     <h1 class="page-title">Log In</h1>
     <AuthForm submit-label="Log In" :loading="loading" :error="error" @submit="handleSubmit" />
     <div class="auth-links">
-      <NuxtLink to="/signup">Don't have an account? Sign up</NuxtLink>
+      <NuxtLink :to="route.query.redirect ? `/signup?redirect=${encodeURIComponent(route.query.redirect as string)}` : '/signup'">Don't have an account? Sign up</NuxtLink>
       <NuxtLink to="/forgot-password">Forgot password?</NuxtLink>
     </div>
   </main>

@@ -8,6 +8,8 @@ const { isLoggedIn } = useAuth()
     <nav>
       <NuxtLink to="/schedule">Schedule</NuxtLink>
       <NuxtLink to="/teams">Teams</NuxtLink>
+      <NuxtLink v-if="isLoggedIn" to="/leagues">Leagues</NuxtLink>
+      <NuxtLink v-if="isLoggedIn" to="/picks">Picks</NuxtLink>
       <div class="nav-spacer" />
       <NavAvatarMenu v-if="isLoggedIn" />
       <NuxtLink v-else to="/login">Log in</NuxtLink>

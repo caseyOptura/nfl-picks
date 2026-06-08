@@ -6,6 +6,7 @@ export interface ProfileRow {
   last_name: string | null
   nickname: string | null
   avatar_url: string | null
+  email: string | null
   updated_at: string
 }
 

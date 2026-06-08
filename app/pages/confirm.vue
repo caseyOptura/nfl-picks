@@ -17,9 +17,10 @@ onMounted(async () => {
   }
 })
 
-// Redirect once the session is established
+// Redirect once the session is established — honor ?redirect= if present (e.g. invite flow)
+const redirectTarget = computed(() => (route.query.redirect as string | undefined) || '/profile')
 watch(session, (s) => {
-  if (s) navigateTo('/profile')
+  if (s) navigateTo(redirectTarget.value)
 }, { immediate: true })
 
 // Show a fallback link if confirmation takes too long

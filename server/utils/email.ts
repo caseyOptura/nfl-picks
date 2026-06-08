@@ -21,19 +21,23 @@ export async function sendInvitationEmail(event: H3Event, params: InvitationEmai
     </div>
   `
 
-  const res = await $fetch<{ id: string }>('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: {
-      from: config.inviteFromEmail,
-      to,
-      subject: `${inviterName} invited you to join ${leagueName}`,
-      html,
-    },
-  })
-
-  if (!res?.id) throw createError({ statusCode: 500, data: { code: 'EMAIL_FAILED', message: 'Failed to send invitation email' } })
+  try {
+    const res = await $fetch<{ id: string }>('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        from: `NFL Picks <${config.inviteFromEmail}>`,
+        to,
+        subject: `${inviterName} invited you to join ${leagueName}`,
+        html,
+      },
+    })
+    if (!res?.id) throw new Error('No ID in response')
+  } catch (e: unknown) {
+    const msg = (e as { data?: { message?: string }; message?: string })?.data?.message ?? (e as { message?: string })?.message ?? 'Unknown error'
+    throw createError({ statusCode: 500, data: { code: 'EMAIL_FAILED', message: `Failed to send email: ${msg}` } })
+  }
 }
