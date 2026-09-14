@@ -63,21 +63,67 @@ export const espnUrls = {
 }
 
 /**
+ * Reduce an ESPN event to the fields the UI actually reads.
+ *
+ * ESPN returns ~6.6 MB across two seasons; the app uses about 5% of it. Sending
+ * the raw payload blew the Cloudflare worker's memory ceiling (error 1102), so
+ * we keep only what `mapScoreboardEvent` and the picks route consume.
+ */
+function trimEvent(event: ScoreboardEvent): ScoreboardEvent {
+  const comp = event.competitions[0]!
+
+  return {
+    id: event.id,
+    date: event.date,
+    week: event.week?.number != null ? { number: event.week.number } : undefined,
+    season: event.season && {
+      year: event.season.year,
+      type: event.season.type,
+      slug: event.season.slug,
+    },
+    status: { type: { name: event.status.type.name } as ScoreboardEvent['status']['type'] },
+    competitions: [{
+      venue: comp.venue?.fullName ? { fullName: comp.venue.fullName } : undefined,
+      status: { type: { name: comp.status?.type?.name } as ScoreboardEvent['status']['type'] },
+      competitors: comp.competitors.map(c => ({
+        homeAway: c.homeAway,
+        score: c.score,
+        winner: c.winner,
+        // Only the overall record; the home/road splits are unused.
+        records: c.records?.filter(r => r.type === 'total' || r.name === 'overall')
+          .map(r => ({ type: r.type, name: r.name, summary: r.summary })),
+        team: {
+          id: c.team.id,
+          abbreviation: c.team.abbreviation,
+          displayName: c.team.displayName,
+          logo: c.team.logo,
+        },
+      })),
+    }],
+  } as ScoreboardEvent
+}
+
+/**
  * Every game of the current season and the one before it, preseason excluded.
  * Shared by `/api/schedule` and the picks route so a pick submission does not
  * have to make an HTTP call back into this same worker.
+ *
+ * Seasons are fetched one at a time on purpose: fetching both concurrently held
+ * two multi-megabyte parsed payloads in memory at once, which is what tipped the
+ * worker over its limit. Each payload is trimmed and released before the next.
  */
 export async function fetchSchedule(): Promise<{ seasons: number[]; events: ScoreboardEvent[] }> {
   const current = currentSeasonYear()
   const seasons = [current - 1, current]
+  const events: ScoreboardEvent[] = []
 
-  const payloads = await Promise.all(
-    seasons.map(year => espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.scoreboard(year))),
-  )
-
-  const events = payloads
-    .flatMap(payload => payload.events ?? [])
-    .filter(event => event.season?.type !== SEASON_TYPE_PRESEASON)
+  for (const year of seasons) {
+    const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.scoreboard(year))
+    for (const event of payload.events ?? []) {
+      if (event.season?.type === SEASON_TYPE_PRESEASON) continue
+      events.push(trimEvent(event))
+    }
+  }
 
   return { seasons, events }
 }
