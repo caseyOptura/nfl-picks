@@ -1,3 +1,7 @@
-export default defineEventHandler(() =>
-  $fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams')
-)
+import { espnFetch, espnUrls } from '../utils/espn'
+
+export default defineCachedEventHandler(async () => espnFetch(espnUrls.teams()), {
+  name: 'espn-teams',
+  maxAge: 60 * 60,
+  getKey: () => 'all',
+})

@@ -1,4 +1,11 @@
-export default defineEventHandler((event) => {
+import { espnFetch, espnUrls } from '../../../utils/espn'
+
+export default defineCachedEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
-  return $fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${id}/roster`)
+  if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing team id' })
+  return espnFetch(espnUrls.teamRoster(id))
+}, {
+  name: 'espn-team-roster',
+  maxAge: 60 * 60,
+  getKey: event => getRouterParam(event, 'id') ?? 'unknown',
 })

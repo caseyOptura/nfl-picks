@@ -1,5 +1,6 @@
 import type { ScoreboardResponse, GameView } from '~/types/espn'
 import { mapScoreboardEvent } from '~/composables/mapGame'
+import { selectableSeasons } from '#shared/utils/season'
 
 function weekGroups(gameList: GameView[]) {
   const map = new Map<number, GameView[]>()
@@ -35,16 +36,15 @@ export function useScheduleGames() {
     (data.value?.events ?? []).map(mapScoreboardEvent)
   )
 
-  const regular2025 = computed(() => games.value.filter(g => !g.isPlayoff && g.kickoffUtc < '2026-06-01'))
-  const playoffs2025 = computed(() => games.value.filter(g => g.isPlayoff && g.kickoffUtc < '2026-06-01'))
-  const regular2026 = computed(() => games.value.filter(g => !g.isPlayoff && g.kickoffUtc >= '2026-06-01'))
-  const playoffs2026 = computed(() => games.value.filter(g => g.isPlayoff && g.kickoffUtc >= '2026-06-01'))
+  /** Seasons the payload actually covers; falls back to the date-derived pair. */
+  const seasons = computed<number[]>(() => data.value?.seasons ?? selectableSeasons())
+
+  const forSeason = (year: number) => games.value.filter(g => g.seasonYear === year)
 
   return {
-    weekGroups2025: computed(() => weekGroups(regular2025.value)),
-    playoffGroups2025: computed(() => playoffGroups(playoffs2025.value)),
-    weekGroups2026: computed(() => weekGroups(regular2026.value)),
-    playoffGroups2026: computed(() => playoffGroups(playoffs2026.value)),
+    seasons,
+    weekGroupsFor: (year: number) => weekGroups(forSeason(year).filter(g => !g.isPlayoff)),
+    playoffGroupsFor: (year: number) => playoffGroups(forSeason(year).filter(g => g.isPlayoff)),
     pending,
     error,
     refresh,

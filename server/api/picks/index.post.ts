@@ -1,4 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
+import { fetchSchedule } from '../../utils/espn'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -13,15 +14,10 @@ export default defineEventHandler(async (event) => {
 
   await assertMember(service, leagueId, user.id)
 
-  // Fetch schedule to validate game and check lock status
-  const schedule = await $fetch<{ events: Array<{
-    id: string
-    date: string
-    status: { type: { name: string } }
-    competitions: Array<{ competitors: Array<{ homeAway: string; team: { id: string } }> }>
-  }> }>('/api/schedule', { baseURL: getRequestURL(event).origin })
-
-  const espnEvent = (schedule.events ?? []).find(e => e.id === gameId)
+  // Validate the game and check lock status. Calling fetchSchedule directly
+  // avoids an HTTP round trip back into this same worker on every pick.
+  const { events } = await fetchSchedule()
+  const espnEvent = events.find(e => e.id === gameId)
 
   if (!espnEvent) {
     throw createError({ statusCode: 400, data: { code: 'GAME_NOT_FOUND', message: 'Game not found in schedule' } })

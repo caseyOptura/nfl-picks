@@ -2,8 +2,6 @@ import type { PickableGame, MemberPickSummary } from '~/types/picks'
 import type { ScoreboardResponse } from '~/types/espn'
 import { mapScoreboardEvent } from '~/composables/mapGame'
 
-const SEASON_2026_CUTOFF = new Date('2026-06-01T00:00:00Z')
-
 function isGameLocked(game: ReturnType<typeof mapScoreboardEvent>): boolean {
   return game.isFinal || game.isInProgress || new Date(game.kickoffUtc) <= new Date()
 }
@@ -86,12 +84,8 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
         allPicksByGame.get(p.game_id)!.push(p)
       }
 
-      const cutoff = SEASON_2026_CUTOFF
       const allGames = (scheduleData.events ?? []).map(mapScoreboardEvent)
-      const filtered = allGames.filter(g => {
-        const kickoff = new Date(g.kickoffUtc)
-        return year === 2025 ? kickoff < cutoff : kickoff >= cutoff
-      })
+      const filtered = allGames.filter(g => g.seasonYear === year)
 
       games.value = filtered.map(g => {
         const pickedTeamId = pickMap.get(g.id) ?? null
