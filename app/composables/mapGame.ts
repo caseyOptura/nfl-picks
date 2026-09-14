@@ -1,4 +1,9 @@
-import type { ScoreboardEvent, TeamScheduleEvent, GameView, GameSideView } from '~/types/espn'
+import type { ScoreboardEvent, TeamScheduleEvent, GameView, GameSideView, ScoreboardCompetitor } from '~/types/espn'
+
+/** The overall W-L record, ignoring the home/road splits ESPN also returns. */
+function overallRecord(competitor: ScoreboardCompetitor): string | undefined {
+  return competitor.records?.find(r => r.type === 'total' || r.name === 'overall')?.summary
+}
 
 const PLAYOFF_ROUNDS: Record<number, string> = {
   1: 'Wild Card',
@@ -22,6 +27,7 @@ export function mapScoreboardEvent(event: ScoreboardEvent): GameView {
     logo: c.team.logo,
     score: isFinal || isInProgress ? c.score : undefined,
     isWinner: c.winner ?? false,
+    record: overallRecord(c),
   })
 
   return {

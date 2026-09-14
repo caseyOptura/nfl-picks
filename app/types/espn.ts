@@ -39,10 +39,22 @@ export interface ScoreboardCompetitorTeam {
   displayName: string
   logo?: string           // STRING url on scoreboard
 }
+/**
+ * A competitor's record on the scoreboard. The `total` entry is the team's
+ * record *as of that game*: for a completed game it includes that result, and
+ * for an upcoming one it is the team's current season record.
+ */
+export interface ScoreboardRecord {
+  name?: string           // 'overall' | 'Home' | 'Road'
+  type?: string           // 'total' | 'home' | 'road'
+  abbreviation?: string
+  summary?: string        // e.g. '1-0', '6-11'
+}
 export interface ScoreboardCompetitor {
   homeAway: 'home' | 'away'
   score: string           // STRING on scoreboard
   winner?: boolean
+  records?: ScoreboardRecord[]
   team: ScoreboardCompetitorTeam
 }
 export interface ScoreboardCompetition {
@@ -207,6 +219,8 @@ export interface GameSideView {
   logo?: string   // always a string, normalized from both endpoints
   score?: string   // always a string, normalized from both endpoints
   isWinner: boolean
+  /** W-L as of this game. Absent on the team-schedule endpoint, which omits records. */
+  record?: string
 }
 export interface GameView {
   id: string
