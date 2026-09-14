@@ -28,12 +28,21 @@ Add all of these to `.env`, `.env.example` (with placeholder values), and Cloudf
 
 | Variable | Where to get it | Example value |
 |----------|-----------------|---------------|
-| `SUPABASE_SERVICE_KEY` | Supabase dashboard → Project Settings → API → service_role key | `eyJ...` |
+| `SUPABASE_SERVICE_KEY` | Supabase dashboard → Project Settings → API Keys → secret key | `sb_secret_...` |
 | `RESEND_API_KEY` | resend.com → API Keys | `re_...` |
 | `INVITE_FROM_EMAIL` | A verified sender domain in Resend | `picks@yourdomain.com` |
-| `PUBLIC_SITE_URL` | The deployed app URL | `https://nfl-picks.pages.dev` |
+| `PUBLIC_SITE_URL` | The deployed app URL | `https://nfl-picks-cg7.pages.dev` |
 
-> `SUPABASE_URL` and `SUPABASE_KEY` (anon key) already exist in `.env`.
+> `SUPABASE_URL` and `SUPABASE_KEY` (publishable key) already exist in `.env`.
+
+> **Key format.** This project uses Supabase's newer publishable/secret keys, not
+> the legacy anon/`service_role` JWTs. A key beginning `eyJ` is the old format and
+> is the wrong one to use here.
+
+> **The deployed URL carries a `-cg7` suffix.** Cloudflare assigned
+> `nfl-picks-cg7.pages.dev` because `nfl-picks.pages.dev` was already claimed by
+> an unrelated account — that bare domain serves someone else's site. Never
+> "correct" the suffix away; invite links would point at a stranger's page.
 
 ### Supabase SQL to run manually (after PR 1 writes the files)
 
