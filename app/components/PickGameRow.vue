@@ -36,6 +36,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
       >
         <img v-if="pickable.game.away.logo" :src="pickable.game.away.logo" :alt="pickable.game.away.abbreviation" class="team-logo" />
         <span class="team-abbr">{{ pickable.game.away.abbreviation }}</span>
+        <span v-if="pickable.game.away.record" class="team-record">{{ pickable.game.away.record }}</span>
         <span v-if="pickable.game.away.score !== undefined" class="team-score">{{ pickable.game.away.score }}</span>
         <span v-if="isPicked(pickable.game.away, pickable.pickedTeamId) && pickable.correct === true" class="result-icon correct-icon">&#10003;</span>
         <span v-else-if="isPicked(pickable.game.away, pickable.pickedTeamId) && pickable.correct === false" class="result-icon incorrect-icon">&#10007;</span>
@@ -65,6 +66,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
       >
         <img v-if="pickable.game.home.logo" :src="pickable.game.home.logo" :alt="pickable.game.home.abbreviation" class="team-logo" />
         <span class="team-abbr">{{ pickable.game.home.abbreviation }}</span>
+        <span v-if="pickable.game.home.record" class="team-record">{{ pickable.game.home.record }}</span>
         <span v-if="pickable.game.home.score !== undefined" class="team-score">{{ pickable.game.home.score }}</span>
         <span v-if="isPicked(pickable.game.home, pickable.pickedTeamId) && pickable.correct === true" class="result-icon correct-icon">&#10003;</span>
         <span v-else-if="isPicked(pickable.game.home, pickable.pickedTeamId) && pickable.correct === false" class="result-icon incorrect-icon">&#10007;</span>
@@ -97,6 +99,11 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
 .team-btn.incorrect { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
 .team-logo { width: 36px; height: 36px; object-fit: contain; }
 .team-abbr { font-size: 0.8rem; font-weight: 700; color: #f0f0f0; letter-spacing: 0.03em; }
+.team-record {
+  font-size: 0.65rem; font-weight: 500; color: #7a7a7a;
+  line-height: 1; font-variant-numeric: tabular-nums;
+}
+.team-btn.picked .team-record { color: #9a9a9a; }
 .team-score { font-size: 1rem; font-weight: 700; color: #fff; }
 .result-icon { position: absolute; top: 4px; right: 6px; font-size: 0.75rem; font-weight: 700; line-height: 1; }
 .correct-icon { color: #22c55e; }

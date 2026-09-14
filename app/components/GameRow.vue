@@ -15,7 +15,10 @@ defineProps<{ game: GameView }>()
         class="team-logo"
       />
       <span v-else class="team-abbr-fallback">{{ game.away.abbreviation }}</span>
-      <span class="team-abbr">{{ game.away.abbreviation }}</span>
+      <span class="team-ident">
+        <span class="team-abbr">{{ game.away.abbreviation }}</span>
+        <span v-if="game.away.record" class="team-record">{{ game.away.record }}</span>
+      </span>
       <span v-if="game.away.score !== undefined" class="score">{{ game.away.score }}</span>
     </div>
 
@@ -30,7 +33,10 @@ defineProps<{ game: GameView }>()
 
     <div class="team-side team-side--home" :class="{ winner: game.home.isWinner && game.isFinal }">
       <span v-if="game.home.score !== undefined" class="score">{{ game.home.score }}</span>
-      <span class="team-abbr">{{ game.home.abbreviation }}</span>
+      <span class="team-ident">
+        <span class="team-abbr">{{ game.home.abbreviation }}</span>
+        <span v-if="game.home.record" class="team-record">{{ game.home.record }}</span>
+      </span>
       <img
         v-if="game.home.logo"
         :src="game.home.logo"
@@ -75,11 +81,36 @@ defineProps<{ game: GameView }>()
   display: none;
 }
 
+/* Abbreviation over record, so the extra line costs no horizontal room at 375px. */
+.team-ident {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.team-side--home .team-ident {
+  align-items: flex-end;
+}
+
 .team-abbr {
   font-size: 0.85rem;
   color: #ccc;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.team-record {
+  font-size: 0.65rem;
+  color: #777;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.winner .team-record {
+  color: #999;
 }
 
 .winner .team-abbr {
