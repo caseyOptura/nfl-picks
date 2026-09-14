@@ -65,7 +65,11 @@ export interface ScoreboardEvent {
   status: EspnStatus
   competitions: ScoreboardCompetition[]
 }
-export interface ScoreboardResponse { events: ScoreboardEvent[] }
+export interface ScoreboardResponse {
+  events: ScoreboardEvent[]
+  /** Season years present in this payload, oldest first. */
+  seasons?: number[]
+}
 
 // Team schedule endpoint — score is OBJECT, logos at competitor.team.logos[0].href
 export interface TeamScheduleTeam {
@@ -182,6 +186,8 @@ export interface StatsCategory {
 }
 
 export interface PlayerStatsResponse {
+  /** Season the stats are actually from — may lag the current season. */
+  seasonYear?: number | null
   splits?: {
     categories?: StatsCategory[]
   }
@@ -205,6 +211,7 @@ export interface GameSideView {
 export interface GameView {
   id: string
   kickoffUtc: string
+  seasonYear?: number
   isFinal: boolean
   isInProgress: boolean
   isPlayoff: boolean

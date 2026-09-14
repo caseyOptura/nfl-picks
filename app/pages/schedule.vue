@@ -1,13 +1,18 @@
 <script setup lang="ts">
-const { weekGroups2025, playoffGroups2025, weekGroups2026, playoffGroups2026, pending, error, refresh } = useScheduleGames()
-const selectedSeason = ref<'2025' | '2026'>('2026')
+import { currentSeasonYear } from '#shared/utils/season'
 
-const activeWeeks = computed(() =>
-  selectedSeason.value === '2026' ? weekGroups2026.value : weekGroups2025.value
-)
-const activePlayoffs = computed(() =>
-  selectedSeason.value === '2026' ? playoffGroups2026.value : playoffGroups2025.value
-)
+const { seasons, weekGroupsFor, playoffGroupsFor, pending, error, refresh } = useScheduleGames()
+
+// Default to the newest season the payload carries.
+const selectedSeason = ref(currentSeasonYear())
+watch(seasons, (list) => {
+  if (list.length && !list.includes(selectedSeason.value)) {
+    selectedSeason.value = list[list.length - 1]!
+  }
+}, { immediate: true })
+
+const activeWeeks = computed(() => weekGroupsFor(selectedSeason.value))
+const activePlayoffs = computed(() => playoffGroupsFor(selectedSeason.value))
 const hasContent = computed(() => activeWeeks.value.length > 0 || activePlayoffs.value.length > 0)
 </script>
 
@@ -17,15 +22,12 @@ const hasContent = computed(() => activeWeeks.value.length > 0 || activePlayoffs
       <h1>NFL Schedule</h1>
       <div class="tabs">
         <button
+          v-for="year in seasons"
+          :key="year"
           class="tab"
-          :class="{ active: selectedSeason === '2025' }"
-          @click="selectedSeason = '2025'"
-        >2025</button>
-        <button
-          class="tab"
-          :class="{ active: selectedSeason === '2026' }"
-          @click="selectedSeason = '2026'"
-        >2026</button>
+          :class="{ active: selectedSeason === year }"
+          @click="selectedSeason = year"
+        >{{ year }}</button>
       </div>
     </div>
 

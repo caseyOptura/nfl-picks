@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { currentSeasonYear } from '#shared/utils/season'
 import type { LeagueListItem } from '~/types/picks'
 
 definePageMeta({ middleware: 'auth' })
@@ -10,7 +11,7 @@ const { leagues, pending: leaguesPending, error: leaguesError } = useLeagues()
 const activeLeague = ref<LeagueListItem | null>(null)
 
 const activeLeagueId = computed(() => activeLeague.value?.id ?? '')
-const seasonYear = computed(() => activeLeague.value?.season_year ?? 2025)
+const seasonYear = computed(() => activeLeague.value?.season_year ?? currentSeasonYear())
 
 const { byWeek, pending: picksPending, error: picksError, submitPick } = usePicks(activeLeagueId, seasonYear)
 

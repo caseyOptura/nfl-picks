@@ -1,15 +1,13 @@
-const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+import { fetchSchedule } from '../utils/espn'
 
-export default defineEventHandler(async () => {
-  const [season2025, season2026] = await Promise.all([
-    $fetch<{ events?: unknown[] }>(`${ESPN_SCOREBOARD}?dates=20250901-20260201&limit=500`),
-    $fetch<{ events?: unknown[] }>(`${ESPN_SCOREBOARD}?dates=20260901-20270201&limit=500`),
-  ])
-
-  return {
-    events: [
-      ...(season2025.events ?? []),
-      ...(season2026.events ?? []),
-    ],
-  }
+/**
+ * Both selectable seasons in one payload. Cached briefly so a page full of
+ * live scores does not fan out to ESPN on every request — the previous
+ * uncached version re-fetched ~570 events per page load, which is what pushed
+ * the worker into its resource limits.
+ */
+export default defineCachedEventHandler(async () => fetchSchedule(), {
+  name: 'espn-schedule',
+  maxAge: 60,
+  getKey: () => 'all',
 })

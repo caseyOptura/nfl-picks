@@ -2,6 +2,14 @@
 
 Unofficial, no auth required. All endpoints are plain HTTP GET — no API key needed.
 
+> **Akamai blocks on User-Agent.** `site.api.espn.com` sits behind Akamai, which
+> returns `403 AkamaiGHost` for requests whose User-Agent looks like a browser or
+> is missing entirely, while serving a plain non-browser UA normally. A 403 here
+> is *not* an auth requirement and no key will fix it — send an explicit UA.
+> All server routes go through `espnFetch` in `server/utils/espn.ts`, which sets
+> one and retries the transient blocks. Never call ESPN from the browser: the
+> browser sends its own UA (and `site.api.espn.com` sends no CORS headers).
+
 Two base URLs:
 - **`site.api.espn.com`** — pre-assembled responses, best for most use cases
 - **`sports.core.api.espn.com`** — granular/raw data, used for standings and venues
@@ -37,7 +45,13 @@ GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard
 
 ### Full season scoreboard (date range)
 ```
-GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20250901-20260201&limit=500
+GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={year}0801-{year+1}0301&limit=500
+```
+Build the range with `seasonDateRange(year)` from `shared/utils/season.ts` — never
+hardcode a season. Each event carries `season.year` and `season.type`
+(1 = preseason, 2 = regular, 3 = post), so filter and group by those rather than
+by kickoff date.
+```
 ```
 Each event in the `events[]` array includes:
 - `id`, `name`, `shortName`

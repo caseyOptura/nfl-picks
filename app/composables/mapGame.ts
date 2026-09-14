@@ -27,6 +27,7 @@ export function mapScoreboardEvent(event: ScoreboardEvent): GameView {
   return {
     id: event.id,
     kickoffUtc: event.date,
+    seasonYear: event.season?.year,
     isFinal,
     isInProgress,
     isPlayoff,
