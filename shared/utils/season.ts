@@ -17,11 +17,16 @@ export function currentSeasonYear(now: Date = new Date()): number {
 }
 
 /**
- * ESPN scoreboard `dates` range covering a whole season, preseason through the
- * Super Bowl. Preseason games are filtered out downstream by `season.type`.
+ * Calendar years a season's games fall in. A season that kicks off in August
+ * finishes with the postseason the following January, so every season spans two
+ * calendar years.
+ *
+ * ESPN's scoreboard `dates` parameter takes a single `YYYY`, `YYYYMM` or
+ * `YYYYMMDD` — it used to accept a `YYYYMMDD-YYYYMMDD` range, but that form now
+ * returns 400, so a whole season is assembled from its calendar years instead.
  */
-export function seasonDateRange(year: number): string {
-  return `${year}0801-${year + 1}0301`
+export function seasonCalendarYears(year: number): number[] {
+  return [year, year + 1]
 }
 
 /** Seasons the app offers, newest last: the current one and the one before it. */
