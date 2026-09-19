@@ -43,14 +43,22 @@ Same shape as above but for one team. Also includes `venue` and `links`.
 GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard
 ```
 
-### Full season scoreboard (date range)
+### Full season scoreboard (calendar year)
 ```
-GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={year}0801-{year+1}0301&limit=500
+GET https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={calendarYear}&limit=500
 ```
-Build the range with `seasonDateRange(year)` from `shared/utils/season.ts` — never
-hardcode a season. Each event carries `season.year` and `season.type`
-(1 = preseason, 2 = regular, 3 = post), so filter and group by those rather than
-by kickoff date.
+`dates` takes a single `YYYY`, `YYYYMM` or `YYYYMMDD`. The `YYYYMMDD-YYYYMMDD`
+range form this app used to send now returns **400** for every range, so don't
+reach for it.
+
+The filter is by *calendar* year, not by season: `dates=2025` returns the tail of
+the 2024 season (week 18 and the playoffs, played in Jan 2025) alongside the 2025
+preseason and the 2025 games played before New Year. A whole season therefore
+takes two calls — use `seasonCalendarYears(year)` from `shared/utils/season.ts`
+and never hardcode a season.
+
+Each event carries `season.year` and `season.type` (1 = preseason, 2 = regular,
+3 = post), so filter and group by those rather than by kickoff date.
 ```
 ```
 Each event in the `events[]` array includes:

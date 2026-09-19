@@ -1,6 +1,6 @@
 import {
   currentSeasonYear,
-  seasonDateRange,
+  seasonCalendarYears,
   SEASON_TYPE_PRESEASON,
   SEASON_TYPE_REGULAR,
 } from '#shared/utils/season'
@@ -56,7 +56,7 @@ export const espnUrls = {
   teams: () => `${SITE_API}/teams`,
   teamRoster: (id: string) => `${SITE_API}/teams/${id}/roster`,
   teamSchedule: (id: string) => `${SITE_API}/teams/${id}/schedule`,
-  scoreboard: (year: number) => `${SITE_API}/scoreboard?dates=${seasonDateRange(year)}&limit=500`,
+  scoreboard: (calendarYear: number) => `${SITE_API}/scoreboard?dates=${calendarYear}&limit=500`,
   athlete: (id: string) => `${WEB_API}/athletes/${id}`,
   athleteStats: (id: string, year: number) =>
     `${CORE_API}/seasons/${year}/types/${SEASON_TYPE_REGULAR}/athletes/${id}/statistics`,
@@ -108,22 +108,35 @@ function trimEvent(event: ScoreboardEvent): ScoreboardEvent {
  * Shared by `/api/schedule` and the picks route so a pick submission does not
  * have to make an HTTP call back into this same worker.
  *
- * Seasons are fetched one at a time on purpose: fetching both concurrently held
- * two multi-megabyte parsed payloads in memory at once, which is what tipped the
- * worker over its limit. Each payload is trimmed and released before the next.
+ * ESPN's scoreboard filters by *calendar* year, not by season, and a season
+ * straddles two of them — the 2025 season's week 18 and playoffs are played in
+ * 2026. So we fetch each calendar year the wanted seasons touch and keep only
+ * the events whose `season.year` we actually asked for; that drops the trailing
+ * weeks of the season before our range, which arrive in the same payload.
+ *
+ * Calendar years are fetched one at a time on purpose: fetching them
+ * concurrently held several multi-megabyte parsed payloads in memory at once,
+ * which tipped the worker over its limit. Each is trimmed and released before
+ * the next.
  */
 export async function fetchSchedule(): Promise<{ seasons: number[]; events: ScoreboardEvent[] }> {
   const current = currentSeasonYear()
   const seasons = [current - 1, current]
-  const events: ScoreboardEvent[] = []
+  const wanted = new Set(seasons)
+  const calendarYears = [...new Set(seasons.flatMap(seasonCalendarYears))].sort((a, b) => a - b)
 
-  for (const year of seasons) {
-    const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.scoreboard(year))
+  // Keyed by event id: an event belongs to exactly one calendar year today, but
+  // deduping keeps a shifted ESPN boundary from producing a doubled game.
+  const byId = new Map<string, ScoreboardEvent>()
+
+  for (const calendarYear of calendarYears) {
+    const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.scoreboard(calendarYear))
     for (const event of payload.events ?? []) {
       if (event.season?.type === SEASON_TYPE_PRESEASON) continue
-      events.push(trimEvent(event))
+      if (!event.season || !wanted.has(event.season.year)) continue
+      byId.set(event.id, trimEvent(event))
     }
   }
 
-  return { seasons, events }
+  return { seasons, events: [...byId.values()] }
 }
