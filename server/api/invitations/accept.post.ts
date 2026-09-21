@@ -25,7 +25,18 @@ export default defineEventHandler(async (event) => {
   }
 
   if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-    throw createError({ statusCode: 403, data: { code: 'EMAIL_MISMATCH', message: 'This invitation was sent to a different email address' } })
+    // Name both addresses. The old message left the invitee guessing, and the
+    // obvious guess — register again at the invited address — is what created
+    // duplicate accounts for the same person.
+    throw createError({
+      statusCode: 403,
+      data: {
+        code: 'EMAIL_MISMATCH',
+        message: `This invitation was sent to ${invitation.email}, but you are signed in as ${user.email ?? 'another account'}. Log out and sign in as ${invitation.email}, or ask the league owner to re-send the invitation to ${user.email ?? 'your address'}. Do not create a second account — it will split your picks across two profiles.`,
+        invitedEmail: invitation.email,
+        signedInEmail: user.email ?? null,
+      },
+    })
   }
 
   await service

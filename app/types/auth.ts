@@ -22,4 +22,10 @@ export type AuthUser = JwtPayload
 export interface AuthResult {
   ok: boolean
   error: string | null
+  /**
+   * Set when the failure is "this email is already registered". The signup page
+   * uses it to offer a log-in link instead of leaving the user at a dead end —
+   * the dead end is what pushes people into creating a second account.
+   */
+  emailTaken?: boolean
 }

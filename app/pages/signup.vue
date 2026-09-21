@@ -13,7 +13,16 @@ const password = ref('')
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+const emailTaken = ref(false)
 const confirmedEmail = ref<string | null>(null)
+
+// Carry the invite redirect through to log in, so someone who already has an
+// account can sign in and still land on their invitation.
+const loginLink = computed(() =>
+  redirectAfterConfirm.value
+    ? `/login?redirect=${encodeURIComponent(redirectAfterConfirm.value)}`
+    : '/login'
+)
 
 function shuffleNickname() {
   nickname.value = randomNickname(firstName.value || null)
@@ -22,6 +31,7 @@ function shuffleNickname() {
 async function handleSubmit() {
   loading.value = true
   error.value = null
+  emailTaken.value = false
   const result = await signUp(email.value, password.value, {
     first_name: firstName.value,
     last_name: lastName.value,
@@ -30,6 +40,7 @@ async function handleSubmit() {
   loading.value = false
   if (!result.ok) {
     error.value = result.error
+    emailTaken.value = result.emailTaken ?? false
     return
   }
   confirmedEmail.value = email.value
@@ -107,6 +118,9 @@ async function handleSubmit() {
         </FormField>
 
         <p v-if="error" class="form-error">{{ error }}</p>
+        <NuxtLink v-if="emailTaken" :to="loginLink" class="takeover-link">
+          Log in to that account instead
+        </NuxtLink>
 
         <button type="submit" class="submit-btn" :disabled="loading">
           {{ loading ? 'Creating account…' : 'Sign Up' }}
@@ -114,7 +128,7 @@ async function handleSubmit() {
       </form>
 
       <div class="auth-links">
-        <NuxtLink to="/login">Already have an account? Log in</NuxtLink>
+        <NuxtLink :to="loginLink">Already have an account? Log in</NuxtLink>
       </div>
     </template>
   </main>
@@ -144,6 +158,12 @@ async function handleSubmit() {
 .shuffle-btn:hover { background: #2a2a2a; }
 
 .form-error { font-size: 0.85rem; color: #f87171; }
+.takeover-link {
+  font-size: 0.875rem; color: #f0f0f0; text-align: center;
+  text-decoration: none; border-bottom: 1px solid #444;
+  align-self: center; padding-bottom: 1px;
+}
+.takeover-link:hover { border-bottom-color: #888; }
 
 .submit-btn {
   padding: 0.7rem; background: #fff; color: #0a0a0a; border: none;
