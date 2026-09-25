@@ -35,6 +35,7 @@ export function useLeagues() {
         body: { name: input.name, season_year: input.season_year },
       })
       await refresh()
+      useChatRealtime().refresh() // open the new league's chat channel
       return { ok: true, id: result.id, error: null }
     } catch (e: unknown) {
       const msg = (e as { data?: { message?: string } })?.data?.message ?? 'Failed to create league'

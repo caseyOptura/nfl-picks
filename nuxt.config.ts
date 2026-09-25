@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   ssr: false,
-  modules: ['@nuxtjs/supabase'],
+  modules: ['@nuxtjs/supabase', '@vueuse/nuxt'],
   supabase: {
     redirect: false,
     useSsrCookies: false,

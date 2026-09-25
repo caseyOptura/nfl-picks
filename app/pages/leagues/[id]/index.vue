@@ -66,6 +66,7 @@ async function handleRemoveMember(userId: string) {
       </section>
 
       <div class="page-links">
+        <NuxtLink :to="'/leagues/' + leagueId + '/chat'" class="page-link">Chat</NuxtLink>
         <NuxtLink :to="'/leagues/' + leagueId + '/stats'" class="page-link">View Standings</NuxtLink>
         <NuxtLink :to="'/picks?league=' + leagueId" class="page-link">Make Picks</NuxtLink>
       </div>

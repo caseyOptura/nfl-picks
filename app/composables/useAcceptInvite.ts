@@ -15,6 +15,7 @@ export function useAcceptInvite() {
           body: { token },
         }
       )
+      useChatRealtime().refresh() // open the new league's chat channel
       return { ok: true, leagueId: data.leagueId, error: null }
     } catch (e: unknown) {
       const err = e as { data?: { data?: { message?: string }; message?: string }; message?: string }
