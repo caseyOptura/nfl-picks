@@ -34,6 +34,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
         :disabled="pickable.locked"
         @click="handlePick(pickable.game.away.teamId, pickable.locked)"
       >
+        <span class="side-label">Away</span>
         <img v-if="pickable.game.away.logo" :src="pickable.game.away.logo" :alt="pickable.game.away.abbreviation" class="team-logo" />
         <span class="team-abbr">{{ pickable.game.away.abbreviation }}</span>
         <span v-if="pickable.game.away.record" class="team-record">{{ pickable.game.away.record }}</span>
@@ -64,6 +65,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
         :disabled="pickable.locked"
         @click="handlePick(pickable.game.home.teamId, pickable.locked)"
       >
+        <span class="side-label">Home</span>
         <img v-if="pickable.game.home.logo" :src="pickable.game.home.logo" :alt="pickable.game.home.abbreviation" class="team-logo" />
         <span class="team-abbr">{{ pickable.game.home.abbreviation }}</span>
         <span v-if="pickable.game.home.record" class="team-record">{{ pickable.game.home.record }}</span>
@@ -97,6 +99,10 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
 .team-btn.picked   { border-color: #fff; background: #1c1c1c; }
 .team-btn.correct  { border-color: #22c55e; background: rgba(34, 197, 94, 0.08); }
 .team-btn.incorrect { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+.side-label {
+  font-size: 0.55rem; font-weight: 600; color: #666;
+  text-transform: uppercase; letter-spacing: 0.08em; line-height: 1;
+}
 .team-logo { width: 36px; height: 36px; object-fit: contain; }
 .team-abbr { font-size: 0.8rem; font-weight: 700; color: #f0f0f0; letter-spacing: 0.03em; }
 .team-record {

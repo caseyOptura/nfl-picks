@@ -16,6 +16,7 @@ defineProps<{ game: GameView }>()
       />
       <span v-else class="team-abbr-fallback">{{ game.away.abbreviation }}</span>
       <span class="team-ident">
+        <span class="side-label">Away</span>
         <span class="team-abbr">{{ game.away.abbreviation }}</span>
         <span v-if="game.away.record" class="team-record">{{ game.away.record }}</span>
       </span>
@@ -34,6 +35,7 @@ defineProps<{ game: GameView }>()
     <div class="team-side team-side--home" :class="{ winner: game.home.isWinner && game.isFinal }">
       <span v-if="game.home.score !== undefined" class="score">{{ game.home.score }}</span>
       <span class="team-ident">
+        <span class="side-label">Home</span>
         <span class="team-abbr">{{ game.home.abbreviation }}</span>
         <span v-if="game.home.record" class="team-record">{{ game.home.record }}</span>
       </span>
@@ -81,7 +83,7 @@ defineProps<{ game: GameView }>()
   display: none;
 }
 
-/* Abbreviation over record, so the extra line costs no horizontal room at 375px. */
+/* Home/away tag over abbreviation over record, so the extra line costs no horizontal room at 375px. */
 .team-ident {
   display: flex;
   flex-direction: column;
@@ -92,6 +94,14 @@ defineProps<{ game: GameView }>()
 
 .team-side--home .team-ident {
   align-items: flex-end;
+}
+
+.side-label {
+  font-size: 0.55rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .team-abbr {
