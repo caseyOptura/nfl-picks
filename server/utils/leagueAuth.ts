@@ -1,18 +1,23 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
-export function requireUser(event: H3Event): { id: string; email: string | undefined } {
+// Every route that calls this goes on to use the service-role client, which
+// bypasses RLS, so the returned id is the only thing standing between a caller
+// and other users' data. getClaims() checks the signature and expiry (locally
+// against the cached JWKS for asymmetric keys, via the Auth server otherwise);
+// merely decoding the payload would accept any hand-written token.
+export async function requireUser(event: H3Event): Promise<{ id: string; email: string | undefined }> {
   const authHeader = getHeader(event, 'authorization') ?? ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
   if (!token) throw createError({ statusCode: 401, data: { code: 'UNAUTHORIZED', message: 'Not logged in' } })
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1])) as Record<string, unknown>
-    const sub = payload.sub as string | undefined
-    if (!sub) throw new Error()
-    return { id: sub, email: payload.email as string | undefined }
-  } catch {
+
+  const { data, error } = await serverSupabaseServiceRole(event).auth.getClaims(token)
+  const sub = data?.claims.sub
+  if (error || !sub || data.claims.role !== 'authenticated') {
     throw createError({ statusCode: 401, data: { code: 'UNAUTHORIZED', message: 'Invalid token' } })
   }
+  return { id: sub, email: data.claims.email }
 }
 
 export async function assertMember(serviceClient: SupabaseClient, leagueId: string, userId: string) {
