@@ -18,6 +18,12 @@ function onDocClick(e: MouseEvent) {
   }
 }
 
+// Full-height pages (chat) size themselves off this instead of a hardcoded nav height.
+useResizeObserver(navEl, ([entry]) => {
+  const nav = (entry?.target as HTMLElement | undefined)?.querySelector('nav')
+  if (nav) document.documentElement.style.setProperty('--app-nav-height', `${nav.offsetHeight}px`)
+})
+
 onMounted(() => document.addEventListener('click', onDocClick, true))
 onUnmounted(() => document.removeEventListener('click', onDocClick, true))
 </script>
