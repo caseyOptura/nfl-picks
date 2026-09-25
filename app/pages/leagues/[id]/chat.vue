@@ -58,7 +58,7 @@ useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') 
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - var(--app-nav-height, 51px));
+  height: calc(100dvh - var(--app-nav-height, 61px));
   max-width: 720px;
   margin: 0 auto;
   border-left: 1px solid #161616;

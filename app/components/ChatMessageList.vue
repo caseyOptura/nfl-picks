@@ -21,6 +21,9 @@ const emit = defineEmits<{
 const scroller = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
 const unseen = ref(0)
+// Older pages may only load once we've landed at the bottom; otherwise the
+// top sentinel is visible on first paint and pulls in a page nobody asked for.
+const settled = ref(false)
 
 const dayLabel = (iso: string) => {
   const d = new Date(iso)
@@ -53,6 +56,18 @@ function scrollToBottom() {
   unseen.value = 0
 }
 
+function settle() {
+  if (settled.value || !props.messages.length) return
+  nextTick(() => {
+    scrollToBottom()
+    settled.value = true
+    maybeLoadOlder() // short first page: fill the screen
+  })
+}
+
+// Messages may already be loaded by the time the list mounts.
+onMounted(settle)
+
 // Snapshot layout before the DOM updates, then decide how to scroll after.
 watch(() => props.messages, (next, prev) => {
   const el = scroller.value
@@ -63,8 +78,9 @@ watch(() => props.messages, (next, prev) => {
   const prevLast = prev?.[prev.length - 1]?.clientId
   const nextLast = next[next.length - 1]
 
+  if (!settled.value) return settle()
+
   nextTick(() => {
-    if (!prev?.length) return scrollToBottom()
     if (next[0]?.clientId !== prevFirst && nextLast?.clientId === prevLast) {
       el.scrollTop += el.scrollHeight - prevHeight // older page prepended: hold position
       return
@@ -79,7 +95,7 @@ watch(() => props.messages, (next, prev) => {
 
 function maybeLoadOlder() {
   const el = scroller.value
-  if (el && props.hasMore && !props.loadingOlder && !props.loading && el.scrollTop < 200) emit('loadOlder')
+  if (el && settled.value && props.hasMore && !props.loadingOlder && !props.loading && el.scrollTop < 200) emit('loadOlder')
 }
 
 useIntersectionObserver(sentinel, ([entry]) => {

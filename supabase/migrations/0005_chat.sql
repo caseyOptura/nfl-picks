@@ -37,6 +37,7 @@ create or replace function public.chat_topic_league_id(p_topic text)
 returns uuid
 language sql
 immutable
+set search_path = ''
 as $$
   select case
     when p_topic ~ '^league:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:room)?$'
@@ -520,3 +521,18 @@ create policy "Chat: members broadcast and track in their league room"
     realtime.topic() like 'league:%:room'
     and public.is_league_member(public.chat_topic_league_id(realtime.topic()), auth.uid())
   );
+
+-- 13. Lock down internal functions -----------------------------
+-- Trigger functions and the name helper are security definer; they must not
+-- be callable over /rest/v1/rpc (profile_display_name would otherwise reveal
+-- any user's name). Triggers fire regardless of EXECUTE grants.
+
+revoke execute on function
+  public.profile_display_name(uuid),
+  public.chat_rate_limit(),
+  public.chat_reactions_set_league(),
+  public.chat_messages_after_insert(),
+  public.chat_messages_after_update(),
+  public.chat_reactions_after_change(),
+  public.chat_league_members_after_change()
+from public, anon, authenticated;
