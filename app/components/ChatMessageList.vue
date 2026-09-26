@@ -123,7 +123,14 @@ watch(() => props.loadingOlder, (busy) => {
   if (!busy) nextTick(maybeLoadOlder)
 })
 
+// Rows below the list (push nudge, send error) can shrink it; stay pinned when they do.
+let pinned = true
+useResizeObserver(scroller, () => {
+  if (pinned && settled.value) scrollToBottom()
+})
+
 function onScroll() {
+  pinned = distanceFromBottom() < 8
   if (unseen.value && distanceFromBottom() < NEAR_BOTTOM_PX) unseen.value = 0
 }
 </script>

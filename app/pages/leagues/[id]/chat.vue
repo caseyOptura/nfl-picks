@@ -26,12 +26,15 @@ onUnmounted(() => {
 const others = computed(() => room.viewers.value.filter((v) => v.userId !== userId.value))
 
 const sendError = ref<string | null>(null)
+// Offer push once the user has actually taken part in the chat.
+const hasSent = ref(false)
 
 const nameFor = (userId: string) => members.value.find((m) => m.userId === userId)?.displayName
 
 async function handleSend(body: string) {
   room.stopTyping()
   sendError.value = await chat.send(body)
+  if (!sendError.value) hasSent.value = true
 }
 
 async function handleRetry(clientId: string) {
@@ -78,6 +81,7 @@ useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') 
         @react="handleReact"
       />
       <ChatTypingIndicator :typers="room.typers.value" />
+      <ChatPushNudge v-if="hasSent" />
       <p v-if="sendError" class="send-error" role="alert">{{ sendError }}</p>
       <ChatComposer @send="handleSend" @typing="room.onTyping" @blur="room.stopTyping" />
     </template>

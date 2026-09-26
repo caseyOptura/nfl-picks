@@ -13,8 +13,8 @@
 | PR 0 | `fix/verify-jwt` | Verify JWT signatures in `requireUser` (prerequisite, see below) | ✅ Merged (#17) |
 | PR 1 | `feat/chat-foundation` | Migration, types, realtime hub, chat page, history pagination, send | ✅ Merged (#18) |
 | PR 2 | `feat/chat-live` | Typing indicator, presence, app-wide toasts, unread badges | ✅ Merged (#19) |
-| PR 3 | `feat/chat-reactions` | Reactions + author-only notification | 🔄 In review |
-| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | ☐ Ready |
+| PR 3 | `feat/chat-reactions` | Reactions + author-only notification | ✅ Merged (#20) |
+| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | 🔄 In review |
 | PR 5 | `feat/chat-extras` | @mentions, edit/delete, replies, system messages, quiet hours | ☐ Ready |
 
 **Dependency graph:** PR 2 and PR 3 can run in parallel after PR 1. PR 4 needs PR 2's toast/notifier plumbing and the prefs table from PR 1.
@@ -572,6 +572,13 @@ Generate the keys once with `npx web-push generate-vapid-keys`.
 5. It loads `push_subscriptions` for the recipients and sends with a Web Crypto–based Web Push library for Deno (e.g. `jsr:@negrel/webpush`). The Node `web-push` package depends on Node crypto APIs. The function sets `TTL: 3600` and `urgency: 'normal'`.
 6. Payload: `{ title: "Sam in Sunday Degenerates", body: snippet, icon: avatarUrl ?? '/icons/icon-192.png', tag: 'chat-{leagueId}', url: '/leagues/{id}/chat' }`. Using the same `tag` per league makes a busy chat **replace** its notification instead of stacking 20 of them. Add `renotify: true` so it still buzzes.
 7. It deletes subscriptions that return **404 or 410** (the browser has discarded them) and updates `last_used_at` on successful sends.
+
+**As built (differs from the sketch above):**
+- No Dashboard webhooks. Migration `0006_chat_push.sql` enables `pg_net` and adds after-insert triggers that POST `{ type, table, record }` to the function, reading the URL and shared secret from Vault (`chat_push_url`, `chat_webhook_secret`). If either secret is missing, the triggers do nothing.
+- The function takes the standard base64url VAPID pair (`VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY`) and builds the JWKs that `@negrel/webpush` expects.
+- `save_push_subscription()` RPC (security definer) moves an endpoint to whoever is signed in, because a browser has one endpoint per device regardless of account. Sign-out deletes this device's row; sign-in re-links it.
+- Quiet hours and mentions are already honored by the function (the tables exist). System messages don't push yet: PR 5 adds lock-reminder pushes to members with unpicked games.
+- Per-league prefs live in a shared `useChatPrefs()`, so a change on `/profile` applies to toasts right away.
 
 **Backup suppression in the SW:** in the `push` handler, if `clients.matchAll({ type: 'window' })` finds a **focused** client already on `data.url`, skip the notification. This covers the gap between heartbeats.
 

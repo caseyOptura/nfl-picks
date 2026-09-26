@@ -130,6 +130,12 @@ export interface ChatHubEvents {
   reconnected: ReconnectedEvent
 }
 
+export interface ChatNotificationPrefs {
+  muted: boolean
+  push_messages: boolean
+  push_reactions: boolean
+}
+
 // Props for the custom vue-sonner toast component (PR 2).
 export interface ChatToastProps {
   kind: 'message' | 'reaction' | 'mention'

@@ -70,6 +70,11 @@ async function handlePasswordChange({ currentPassword, newPassword }: { currentP
       </section>
 
       <section class="profile-section">
+        <h2 class="section-title">Notifications</h2>
+        <NotificationSettings />
+      </section>
+
+      <section class="profile-section">
         <h2 class="section-title">Change Password</h2>
         <PasswordChangeForm @change="handlePasswordChange" />
         <p v-if="passwordFeedback" :class="passwordFeedback.ok ? 'feedback-ok' : 'feedback-error'">
