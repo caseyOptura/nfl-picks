@@ -11,6 +11,15 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'cloudflare-pages'
   },
+  app: {
+    head: {
+      meta: [{ name: 'theme-color', content: '#0a0a0a' }],
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
+      ],
+    },
+  },
   routeRules: {
     '/': { redirect: '/schedule' }
   },
@@ -20,6 +29,8 @@ export default defineNuxtConfig({
     inviteFromEmail: process.env.INVITE_FROM_EMAIL ?? '',
     public: {
       siteUrl: process.env.PUBLIC_SITE_URL ?? 'http://localhost:3000',
+      // Web Push application server key (public half of the VAPID pair).
+      vapidPublicKey: process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY ?? '',
     },
   },
 })

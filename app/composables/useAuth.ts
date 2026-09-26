@@ -59,6 +59,7 @@ export function useAuth() {
   }
 
   async function logOut(): Promise<AuthResult> {
+    await usePushNotifications().forgetDevice()
     const { error } = await client.auth.signOut()
     if (error) return { ok: false, error: error.message }
     await navigateTo('/login')

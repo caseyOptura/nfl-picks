@@ -6,15 +6,14 @@ import type { MessageCreatedEvent, ReactionReceivedEvent } from '~/types/chat'
 
 const SNIPPET_MAX = 80
 
-const client = useSupabaseClient()
 const route = useRoute()
 const { userId } = useAuth()
 const hub = useChatRealtime()
 const unread = useChatUnread()
 const toasts = useChatToasts()
 const visibility = useDocumentVisibility()
+const prefs = useChatPrefs()
 
-const muted = ref(new Set<string>())
 // messageId → distinct reactor ids, for the currently open reaction toast.
 const reactors = new Map<number, string[]>()
 
@@ -27,15 +26,6 @@ function snippet(body: string) {
 const chatPath = (leagueId: string) => `/leagues/${leagueId}/chat`
 const isWatching = (leagueId: string) => route.path === chatPath(leagueId) && visibility.value === 'visible'
 
-async function loadMuted() {
-  const { data, error } = await client
-    .from('chat_notification_prefs')
-    .select('league_id')
-    .eq('user_id', userId.value!)
-    .eq('muted', true)
-  if (!error) muted.value = new Set((data as { league_id: string }[]).map((r) => r.league_id))
-}
-
 function onMessage(e: MessageCreatedEvent) {
   const me = userId.value
   if (!me || e.userId === me) return
@@ -47,7 +37,7 @@ function onMessage(e: MessageCreatedEvent) {
   if (e.kind === 'system') return
 
   const mentioned = e.mentionedUserIds.includes(me)
-  if (muted.value.has(e.leagueId) && !mentioned) return
+  if (prefs.isMuted(e.leagueId) && !mentioned) return
 
   toasts.show(`msg:${e.leagueId}:${e.userId}`, {
     kind: mentioned ? 'mention' : 'message',
@@ -61,7 +51,7 @@ function onMessage(e: MessageCreatedEvent) {
 
 function onReaction(e: ReactionReceivedEvent) {
   if (e.reactorId === userId.value || isWatching(e.leagueId)) return
-  if (muted.value.has(e.leagueId)) return
+  if (prefs.isMuted(e.leagueId)) return
 
   const id = `react:${e.messageId}`
   const seen = toasts.isOpen(id) ? reactors.get(e.messageId) ?? [] : []
@@ -89,18 +79,19 @@ watch(hub.leagueIds, () => unread.load())
 watch(visibility, (v) => {
   if (v === 'visible') {
     unread.load()
-    loadMuted()
+    prefs.load()
   }
 })
 
 onMounted(() => {
   unread.load()
-  loadMuted()
+  prefs.load()
 })
 
 onUnmounted(() => {
   toasts.dismissAll()
   unread.reset()
+  prefs.reset()
 })
 </script>
 
