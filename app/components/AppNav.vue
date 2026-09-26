@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { isLoggedIn } = useAuth()
+const unread = useChatUnread()
 
 const menuOpen = ref(false)
 const navEl = ref<HTMLElement | null>(null)
@@ -45,12 +46,13 @@ onUnmounted(() => document.removeEventListener('click', onDocClick, true))
             </g>
           </Transition>
         </svg>
+        <span v-if="unread.total.value && !menuOpen" class="hamburger-dot" />
       </button>
 
       <div class="nav-links">
         <NuxtLink to="/schedule" @click="closeMenu">Schedule</NuxtLink>
         <NuxtLink to="/teams" @click="closeMenu">Teams</NuxtLink>
-        <NuxtLink v-if="isLoggedIn" to="/leagues" @click="closeMenu">Leagues</NuxtLink>
+        <NuxtLink v-if="isLoggedIn" to="/leagues" @click="closeMenu">Leagues<ChatUnreadBadge /></NuxtLink>
         <NuxtLink v-if="isLoggedIn" to="/picks" @click="closeMenu">Picks</NuxtLink>
       </div>
 
@@ -64,7 +66,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick, true))
       <div v-if="menuOpen" class="mobile-menu">
         <NuxtLink to="/schedule" @click="closeMenu">Schedule</NuxtLink>
         <NuxtLink to="/teams" @click="closeMenu">Teams</NuxtLink>
-        <NuxtLink v-if="isLoggedIn" to="/leagues" @click="closeMenu">Leagues</NuxtLink>
+        <NuxtLink v-if="isLoggedIn" to="/leagues" @click="closeMenu">Leagues<ChatUnreadBadge /></NuxtLink>
         <NuxtLink v-if="isLoggedIn" to="/picks" @click="closeMenu">Picks</NuxtLink>
         <NuxtLink v-if="!isLoggedIn" to="/login" @click="closeMenu">Log in</NuxtLink>
       </div>
@@ -110,6 +112,19 @@ nav :deep(a.router-link-active) {
 }
 
 .nav-spacer { flex: 1; min-width: 0; }
+
+/* Collapsed nav: show that something's waiting behind the hamburger. */
+.hamburger { position: relative; }
+.hamburger-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #111;
+}
 
 .hamburger {
   display: none;

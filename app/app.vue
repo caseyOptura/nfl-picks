@@ -1,8 +1,24 @@
+<script setup lang="ts">
+const { isLoggedIn } = useAuth()
+// Top on phones (clear of the chat composer), below the sticky nav.
+const isMobile = useMediaQuery('(max-width: 767px)')
+</script>
+
 <template>
   <div>
     <NuxtRouteAnnouncer />
     <AppNav />
     <NuxtPage />
+    <Toaster
+      theme="dark"
+      :visible-toasts="5"
+      :duration="6000"
+      close-button
+      :position="isMobile ? 'top-center' : 'bottom-right'"
+      :offset="isMobile ? 64 : 24"
+      :mobile-offset="{ top: 64, left: 16, right: 16 }"
+    />
+    <ChatNotifier v-if="isLoggedIn" />
   </div>
 </template>
 

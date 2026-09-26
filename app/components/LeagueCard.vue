@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { LeagueListItem } from '~/types/picks'
 
-defineProps<{
+const props = defineProps<{
   league: LeagueListItem
 }>()
+
+const unread = useChatUnread()
+const count = computed(() => unread.countFor(props.league.id))
 
 function leagueInitials(name: string): string {
   return name
@@ -26,6 +29,9 @@ function leagueInitials(name: string): string {
         <span class="league-name">{{ league.name }}</span>
         <span v-if="league.role === 'owner'" class="role-badge">Owner</span>
       </div>
+      <span v-if="count" class="unread" :aria-label="`${count} unread chat messages`">
+        {{ count > 99 ? '99+' : count }} new in chat
+      </span>
       <div class="card-meta">
         <span class="season">{{ league.season_year }} Season</span>
         <span class="members">{{ league.memberCount }} {{ league.memberCount === 1 ? 'member' : 'members' }}</span>
@@ -114,6 +120,16 @@ function leagueInitials(name: string): string {
   border-radius: 4px;
   padding: 1px 5px;
   flex-shrink: 0;
+}
+
+.unread {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: #ef4444;
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 .card-meta {

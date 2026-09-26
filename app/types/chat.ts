@@ -138,5 +138,6 @@ export interface ChatToastProps {
   leagueName: string
   snippet: string
   count?: number
+  emoji?: string
   to: string
 }
