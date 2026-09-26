@@ -44,6 +44,8 @@ async function change(leagueId: string, patch: Partial<ChatNotificationPrefs>) {
       </template>
     </div>
 
+    <QuietHoursSetting @error="feedback = $event" />
+
     <p v-if="feedback" class="feedback" role="alert">{{ feedback }}</p>
 
     <p v-if="pending && !leagues.length" class="note">Loading leagues…</p>

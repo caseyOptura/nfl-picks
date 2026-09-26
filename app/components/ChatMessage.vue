@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatMessageView, ReactionEmoji } from '~/types/chat'
+import type { ChatMenuMode, ChatMessageView, ReactionEmoji } from '~/types/chat'
 
 const props = defineProps<{
   message: ChatMessageView
@@ -11,19 +11,20 @@ const emit = defineEmits<{
   retry: [clientId: string]
   discard: [clientId: string]
   react: [messageId: number, emoji: ReactionEmoji]
-  openPicker: [messageId: number, anchor: DOMRect]
+  openMenu: [messageId: number, anchor: DOMRect, mode: ChatMenuMode]
+  jump: [messageId: number]
 }>()
 
 const bubble = ref<HTMLElement | null>(null)
 const reactable = computed(() => props.message.id !== null && !props.message.deletedAt)
 
-function openPicker(el: HTMLElement | null) {
-  if (reactable.value && el) emit('openPicker', props.message.id!, el.getBoundingClientRect())
+function openMenu(el: HTMLElement | null, mode: ChatMenuMode) {
+  if (reactable.value && el) emit('openMenu', props.message.id!, el.getBoundingClientRect(), mode)
 }
 
-// Touch: long-press the bubble to react. Mouse users get the hover button instead.
+// Touch: long-press the bubble for reactions + actions. Mouse users get the hover buttons instead.
 onLongPress(bubble, (e) => {
-  if (e.pointerType !== 'mouse') openPicker(bubble.value)
+  if (e.pointerType !== 'mouse') openMenu(bubble.value, 'both')
 }, { delay: 450 })
 
 const segments = computed(() => messageSegments(props.message.body, props.nameFor))
@@ -47,6 +48,7 @@ const deletedLabel = computed(() =>
 
   <div
     v-else
+    :data-message-id="message.id ?? undefined"
     class="msg"
     :class="{ mine: message.mine, grouped, mentioned: message.mentionsMe, pending: message.status === 'pending' }"
   >
@@ -59,6 +61,12 @@ const deletedLabel = computed(() =>
         <span v-if="!message.mine" class="name">{{ message.displayName }}</span>
         <time :datetime="message.createdAt">{{ time }}</time>
       </div>
+
+      <ChatReplyQuote
+        v-if="message.replyTo && !message.deletedAt"
+        :reply="message.replyTo"
+        @click="emit('jump', message.replyTo.id)"
+      />
 
       <div class="bubble-row">
         <div ref="bubble" class="bubble" :title="grouped ? time : undefined">
@@ -78,14 +86,24 @@ const deletedLabel = computed(() =>
           class="react-btn"
           aria-label="Add reaction"
           title="Add reaction"
-          @click="openPicker($event.currentTarget as HTMLElement)"
+          @click="openMenu($event.currentTarget as HTMLElement, 'react')"
         >
           ＋☺
+        </button>
+        <button
+          v-if="reactable"
+          type="button"
+          class="react-btn"
+          aria-label="More actions"
+          title="More"
+          @click="openMenu($event.currentTarget as HTMLElement, 'actions')"
+        >
+          ⋯
         </button>
       </div>
 
       <ChatReactionBar
-        v-if="message.reactions.length"
+        v-if="message.reactions.length && !message.deletedAt"
         :reactions="message.reactions"
         :name-for="nameFor"
         @toggle="emit('react', message.id!, $event)"
@@ -105,6 +123,8 @@ const deletedLabel = computed(() =>
 .msg.grouped { margin-top: 0.15rem; }
 .msg.mine { flex-direction: row-reverse; }
 .msg.pending { opacity: 0.55; }
+.msg.flash .bubble { animation: flash 1.6s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 2px #fbbf24; } to { box-shadow: 0 0 0 2px transparent; } }
 
 .avatar-col { width: 32px; flex-shrink: 0; }
 .msg.mine .avatar-col { display: none; }

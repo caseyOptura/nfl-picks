@@ -14,8 +14,9 @@
 | PR 1 | `feat/chat-foundation` | Migration, types, realtime hub, chat page, history pagination, send | ✅ Merged (#18) |
 | PR 2 | `feat/chat-live` | Typing indicator, presence, app-wide toasts, unread badges | ✅ Merged (#19) |
 | PR 3 | `feat/chat-reactions` | Reactions + author-only notification | ✅ Merged (#20) |
-| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | 🔄 In review |
-| PR 5 | `feat/chat-extras` | @mentions, edit/delete, replies, system messages, quiet hours | ☐ Ready |
+| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | ✅ Merged (#21) |
+| PR 5a | `feat/chat-extras` | @mentions, edit/delete, replies, quiet hours (app code only) | 🔄 In review |
+| PR 5b | `feat/chat-bot` | Picks Bot: pg_cron, `chat-system-messages` function, lock-reminder pushes, shared scoring | ☐ Ready |
 
 **Dependency graph:** PR 2 and PR 3 can run in parallel after PR 1. PR 4 needs PR 2's toast/notifier plumbing and the prefs table from PR 1.
 
@@ -587,6 +588,10 @@ Deploy with `supabase functions deploy chat-push` (this adds the Supabase CLI to
 ---
 
 ## PR 5 — Mentions, edit/delete, replies, system messages, quiet hours (`feat/chat-extras`)
+
+> **Split into two PRs.** 5a (`feat/chat-extras`) ships @mentions, the message menu (reply / edit / copy / delete), reply quotes, and the quiet-hours setting. It's app code only, because the triggers, RPCs, and `chat-push` handling were already in 0005/PR 4. 5b (`feat/chat-bot`) ships Picks Bot: pg_cron, the `chat-system-messages` Edge Function, lock-reminder pushes, the `systemKey` field in the `message_created` payload (so ChatNotifier can toast lock reminders), and the move to `shared/utils/scoring.ts`.
+>
+> **As built (5a):** the reaction picker became `ChatMessageMenu`. Desktop has two hover buttons: ＋☺ (emoji only) and ⋯ (actions only). A touch long-press shows both in one bottom sheet. The composer turns `@Name` into `@[Name](uuid)` only for names picked from the autocomplete (`app/utils/mentions.ts`). Reply quotes for originals that aren't loaded are fetched one row at a time (`useChatReplies`). Jumping to one pages back at most 5 pages. Delete uses the browser's `confirm()`.
 
 The schema for all of this lands in PR 1's migration (`kind`, `system_key`, `deleted_by`, `chat_mentions`, `user_notification_settings`, and the edit/delete RPCs), so this PR is only application code, the cron job, and the Edge Function.
 

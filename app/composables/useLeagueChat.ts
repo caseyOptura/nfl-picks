@@ -4,6 +4,7 @@ import type { ChatMessageRow, ChatMessageView, LocalChatMessage, MessageCreatedE
 const PAGE_SIZE = 40
 const GAP_FILL_LIMIT = 200
 const EDIT_WINDOW_MS = 15 * 60 * 1000
+const JUMP_MAX_PAGES = 5
 
 function fromRow(r: ChatMessageRow): LocalChatMessage {
   return {
@@ -53,22 +54,32 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
   const error = ref<string | null>(null)
 
   const memberMap = computed(() => new Map(members.value.map((m) => [m.userId, m])))
+  const replies = useChatReplies(leagueId, local, (id) => memberMap.value.get(id)?.displayName)
+  // Re-evaluates canEdit as messages age out of the edit window.
+  const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 30_000) })
+
+  // Same rules as the insert trigger: explicit token, owner's @league, or a reply to me.
+  function isMentioned(m: LocalChatMessage, me: string) {
+    if (m.body.includes(`](${me})`) || replies.authorOf(m.replyToId) === me) return true
+    return /(^|\s)@league\b/i.test(m.body) && memberMap.value.get(m.userId ?? '')?.role === 'owner'
+  }
 
   const messages = computed<ChatMessageView[]>(() => {
     const me = userId.value
-    const now = Date.now()
     return local.value.map((m) => {
       const member = m.userId ? memberMap.value.get(m.userId) : undefined
       const mine = !!me && m.userId === me
+      const sent = m.id !== null && !m.deletedAt
       return {
         ...m,
         displayName: m.kind === 'system' ? 'Picks Bot' : member?.displayName ?? 'Former member',
         avatarUrl: member?.avatarUrl ?? null,
         mine,
-        mentionsMe: !!me && !mine && m.body.includes(`](${me})`),
-        canEdit: mine && m.kind === 'user' && !m.deletedAt && now - Date.parse(m.createdAt) < EDIT_WINDOW_MS,
-        canDelete: !m.deletedAt && m.id !== null && (mine || isOwner.value),
+        mentionsMe: !!me && !mine && m.kind === 'user' && !m.deletedAt && isMentioned(m, me),
+        canEdit: sent && mine && m.kind === 'user' && now.value.getTime() - Date.parse(m.createdAt) < EDIT_WINDOW_MS,
+        canDelete: sent && (mine || isOwner.value),
         reactions: reactions.summaries(m.id),
+        replyTo: replies.preview(m.replyToId),
       }
     })
   })
@@ -198,6 +209,45 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
     local.value = local.value.filter((m) => !(m.clientId === clientId && m.status === 'failed'))
   }
 
+  // Optimistically apply `patch`, run the RPC, and roll back if it's refused.
+  async function mutate(id: number, patch: Partial<LocalChatMessage>, rpc: () => PromiseLike<{ error: unknown }>) {
+    const before = local.value.find((m) => m.id === id)
+    if (!before) return false
+    upsert([{ ...before, ...patch }])
+    const { error: e } = await rpc()
+    if (!e) return true
+    const current = local.value.find((m) => m.id === id)
+    if (current) upsert([{ ...current, body: before.body, editedAt: before.editedAt, deletedAt: before.deletedAt, deletedBy: before.deletedBy }])
+    return false
+  }
+
+  async function edit(id: number, body: string): Promise<string | null> {
+    const text = body.trim()
+    if (!text) return 'Message can’t be empty — delete it instead.'
+    if (text.length > 2000) return 'Messages are limited to 2,000 characters.'
+    if (local.value.find((m) => m.id === id)?.body === text) return null
+    const ok = await mutate(id, { body: text, editedAt: new Date().toISOString() },
+      () => client.rpc('edit_chat_message', { p_id: id, p_body: text } as never))
+    return ok ? null : 'Couldn’t edit — messages can only be edited for 15 minutes.'
+  }
+
+  async function remove(id: number): Promise<string | null> {
+    const ok = await mutate(id, { deletedAt: new Date().toISOString(), deletedBy: userId.value },
+      () => client.rpc('delete_chat_message', { p_id: id } as never))
+    return ok ? null : 'Couldn’t delete that message.'
+  }
+
+  // Page back until message `id` is loaded (for jumping to a reply's original).
+  async function loadUntil(id: number) {
+    for (let page = 0; page < JUMP_MAX_PAGES; page++) {
+      if (local.value.some((m) => m.id === id)) return true
+      await until(loadingOlder).toBe(false)
+      if (!hasMore.value) break
+      await loadOlder()
+    }
+    return local.value.some((m) => m.id === id)
+  }
+
   // Remember how far this user has read, for unread badges.
   const markRead = useDebounceFn(async () => {
     const last = newestId()
@@ -238,12 +288,13 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
   watch(() => toValue(leagueId), () => {
     local.value = []
     reactions.reset()
+    replies.reset()
     hasMore.value = true
     loadLatest()
   }, { immediate: true })
 
   return {
     messages, hasMore, loading, loadingOlder, error,
-    loadOlder, send, retry, discard, reload: loadLatest, toggleReaction: reactions.toggle,
+    loadOlder, loadUntil, send, retry, discard, edit, remove, reload: loadLatest, toggleReaction: reactions.toggle,
   }
 }
