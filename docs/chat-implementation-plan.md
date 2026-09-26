@@ -10,12 +10,12 @@
 
 | PR | Branch | Description | Status |
 |----|--------|-------------|--------|
-| PR 0 | `fix/verify-jwt` | Verify JWT signatures in `requireUser` (prerequisite, see below) | ☐ Not started |
-| PR 1 | `feat/chat-foundation` | Migration, types, realtime hub, chat page, history pagination, send | ☐ Blocked on PR 0 |
-| PR 2 | `feat/chat-live` | Typing indicator, presence, app-wide toasts, unread badges | ☐ Blocked on PR 1 |
-| PR 3 | `feat/chat-reactions` | Reactions + author-only notification | ☐ Blocked on PR 1 |
-| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | ☐ Blocked on PR 2 |
-| PR 5 | `feat/chat-extras` | @mentions, edit/delete, replies, system messages, quiet hours | ☐ Blocked on PR 2 |
+| PR 0 | `fix/verify-jwt` | Verify JWT signatures in `requireUser` (prerequisite, see below) | ✅ Merged (#17) |
+| PR 1 | `feat/chat-foundation` | Migration, types, realtime hub, chat page, history pagination, send | ✅ Merged (#18) |
+| PR 2 | `feat/chat-live` | Typing indicator, presence, app-wide toasts, unread badges | ✅ Merged (#19) |
+| PR 3 | `feat/chat-reactions` | Reactions + author-only notification | 🔄 In review |
+| PR 4 | `feat/chat-push` | Manifest, service worker, VAPID, push subscriptions, Edge Function, settings UI | ☐ Ready |
+| PR 5 | `feat/chat-extras` | @mentions, edit/delete, replies, system messages, quiet hours | ☐ Ready |
 
 **Dependency graph:** PR 2 and PR 3 can run in parallel after PR 1. PR 4 needs PR 2's toast/notifier plumbing and the prefs table from PR 1.
 

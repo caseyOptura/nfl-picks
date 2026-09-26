@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReactionEmoji } from '~/types/chat'
+
 definePageMeta({ middleware: 'auth' })
 
 const route = useRoute()
@@ -36,6 +38,10 @@ async function handleRetry(clientId: string) {
   sendError.value = await chat.retry(clientId)
 }
 
+async function handleReact(messageId: number, emoji: ReactionEmoji) {
+  sendError.value = await chat.toggleReaction(messageId, emoji)
+}
+
 useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') })
 </script>
 
@@ -69,6 +75,7 @@ useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') 
         @load-older="chat.loadOlder"
         @retry="handleRetry"
         @discard="chat.discard"
+        @react="handleReact"
       />
       <ChatTypingIndicator :typers="room.typers.value" />
       <p v-if="sendError" class="send-error" role="alert">{{ sendError }}</p>
