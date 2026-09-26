@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ReactionEmoji } from '~/types/chat'
+import type { ChatMessageAction, ChatMessageView, ComposerContext, ReactionEmoji } from '~/types/chat'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -31,10 +31,66 @@ const hasSent = ref(false)
 
 const nameFor = (userId: string) => members.value.find((m) => m.userId === userId)?.displayName
 
+const list = ref<{ scrollToMessage: (id: number) => boolean } | null>(null)
+const composer = ref<{ focus: () => void, edit: (body: string, nameFor: (id: string) => string | undefined) => void } | null>(null)
+const replyTo = ref<ChatMessageView | null>(null)
+const editing = ref<ChatMessageView | null>(null)
+
+const context = computed<ComposerContext | null>(() => {
+  if (editing.value) return { kind: 'edit', name: '', snippet: '' }
+  if (replyTo.value) return { kind: 'reply', name: replyTo.value.displayName, snippet: messageSnippet(replyTo.value.body, 60) }
+  return null
+})
+
 async function handleSend(body: string) {
   room.stopTyping()
-  sendError.value = await chat.send(body)
+  if (editing.value) {
+    const id = editing.value.id!
+    editing.value = null
+    sendError.value = await chat.edit(id, body)
+    return
+  }
+  const reply = replyTo.value?.id ?? null
+  replyTo.value = null
+  sendError.value = await chat.send(body, reply)
   if (!sendError.value) hasSent.value = true
+}
+
+async function handleAction(m: ChatMessageView, action: ChatMessageAction) {
+  sendError.value = null
+  if (action === 'reply') {
+    editing.value = null
+    replyTo.value = m
+    composer.value?.focus()
+  } else if (action === 'edit') {
+    replyTo.value = null
+    editing.value = m
+    composer.value?.edit(m.body, nameFor)
+  } else if (action === 'copy') {
+    await navigator.clipboard?.writeText(mentionsToDisplay(m.body, nameFor).text).catch(() => {})
+  } else if (action === 'delete') {
+    const whose = m.mine ? 'your message' : `${m.displayName}’s message`
+    if (!window.confirm(`Delete ${whose}? This can’t be undone.`)) return
+    if (editing.value?.id === m.id) editing.value = null
+    if (replyTo.value?.id === m.id) replyTo.value = null
+    sendError.value = await chat.remove(m.id!)
+  }
+}
+
+// Reply quote → original, paging back through history if it isn't loaded yet.
+async function handleJump(id: number) {
+  if (list.value?.scrollToMessage(id)) return
+  const found = await chat.loadUntil(id)
+  await nextTick()
+  // After the list has restored its scroll position for the prepended pages.
+  requestAnimationFrame(() => {
+    if (!found || !list.value?.scrollToMessage(id)) sendError.value = 'The original message is further back.'
+  })
+}
+
+function cancelContext() {
+  replyTo.value = null
+  editing.value = null
 }
 
 async function handleRetry(clientId: string) {
@@ -70,6 +126,7 @@ useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') 
 
     <template v-else>
       <ChatMessageList
+        ref="list"
         :messages="chat.messages.value"
         :loading="chat.loading.value"
         :loading-older="chat.loadingOlder.value"
@@ -79,11 +136,22 @@ useHead({ title: () => (league.value ? `${league.value.name} · Chat` : 'Chat') 
         @retry="handleRetry"
         @discard="chat.discard"
         @react="handleReact"
+        @action="handleAction"
+        @jump="handleJump"
       />
       <ChatTypingIndicator :typers="room.typers.value" />
       <ChatPushNudge v-if="hasSent" />
       <p v-if="sendError" class="send-error" role="alert">{{ sendError }}</p>
-      <ChatComposer @send="handleSend" @typing="room.onTyping" @blur="room.stopTyping" />
+      <ChatComposer
+        ref="composer"
+        :members="members"
+        :can-mention-league="isOwner"
+        :context="context"
+        @send="handleSend"
+        @cancel="cancelContext"
+        @typing="!editing && room.onTyping()"
+        @blur="room.stopTyping"
+      />
     </template>
   </main>
 </template>

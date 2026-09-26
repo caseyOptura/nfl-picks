@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatMessageView, ReactionEmoji } from '~/types/chat'
+import type { ChatMessageAction, ChatMessageView, ReactionEmoji } from '~/types/chat'
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
 const NEAR_BOTTOM_PX = 120
@@ -17,17 +17,21 @@ const emit = defineEmits<{
   retry: [clientId: string]
   discard: [clientId: string]
   react: [messageId: number, emoji: ReactionEmoji]
+  action: [message: ChatMessageView, action: ChatMessageAction]
+  jump: [messageId: number]
 }>()
 
-// One picker for the whole list, teleported out of the scroller so it's never clipped.
-const picker = ref<{ messageId: number, anchor: DOMRect } | null>(null)
-const pickerSelected = computed(() =>
-  props.messages.find((m) => m.id === picker.value?.messageId)?.reactions.filter((r) => r.mine).map((r) => r.emoji) ?? [],
-)
+// One menu for the whole list, teleported out of the scroller so it's never clipped.
+const menu = useChatMessageMenu(() => props.messages)
 
 function pick(emoji: ReactionEmoji) {
-  if (picker.value) emit('react', picker.value.messageId, emoji)
-  picker.value = null
+  if (menu.message.value) emit('react', menu.message.value.id!, emoji)
+  menu.close()
+}
+
+function act(action: ChatMessageAction) {
+  if (menu.message.value) emit('action', menu.message.value, action)
+  menu.close()
 }
 
 const scroller = ref<HTMLElement | null>(null)
@@ -37,15 +41,6 @@ const unseen = ref(0)
 // top sentinel is visible on first paint and pulls in a page nobody asked for.
 const settled = ref(false)
 
-const dayLabel = (iso: string) => {
-  const d = new Date(iso)
-  const today = new Date()
-  const yesterday = new Date(Date.now() - 86_400_000)
-  if (d.toDateString() === today.toDateString()) return 'Today'
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
 const rows = computed(() =>
   props.messages.map((m, i) => {
     const prev = props.messages[i - 1]
@@ -53,7 +48,7 @@ const rows = computed(() =>
     const grouped = !!prev && !newDay && prev.kind === 'user' && m.kind === 'user'
       && prev.userId === m.userId
       && Date.parse(m.createdAt) - Date.parse(prev.createdAt) < GROUP_WINDOW_MS
-    return { m, grouped, day: newDay ? dayLabel(m.createdAt) : null }
+    return { m, grouped, day: newDay ? formatDayLabel(m.createdAt) : null }
   }),
 )
 
@@ -129,6 +124,18 @@ useResizeObserver(scroller, () => {
   if (pinned && settled.value) scrollToBottom()
 })
 
+// Center a loaded message and flash it (reply quote → original).
+function scrollToMessage(id: number) {
+  const el = scroller.value?.querySelector<HTMLElement>(`[data-message-id="${id}"]`)
+  if (!el) return false
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  el.classList.remove('flash')
+  void el.offsetWidth // restart the animation
+  el.classList.add('flash')
+  return true
+}
+defineExpose({ scrollToMessage })
+
 function onScroll() {
   pinned = distanceFromBottom() < 8
   if (unseen.value && distanceFromBottom() < NEAR_BOTTOM_PX) unseen.value = 0
@@ -152,22 +159,24 @@ function onScroll() {
           @retry="emit('retry', $event)"
           @discard="emit('discard', $event)"
           @react="(id, emoji) => emit('react', id, emoji)"
-          @open-picker="(messageId, anchor) => (picker = { messageId, anchor })"
+          @open-menu="menu.open"
+          @jump="emit('jump', $event)"
         />
       </template>
       <div class="tail" />
     </div>
 
-    <button v-if="unseen" type="button" class="unseen" @click="scrollToBottom">
-      ↓ {{ unseen }} new {{ unseen === 1 ? 'message' : 'messages' }}
-    </button>
+    <ChatUnseenButton v-if="unseen" :count="unseen" @click="scrollToBottom" />
 
-    <ChatReactionPicker
-      v-if="picker"
-      :anchor="picker.anchor"
-      :selected="pickerSelected"
+    <ChatMessageMenu
+      v-if="menu.menu.value && menu.message.value"
+      :anchor="menu.menu.value.anchor"
+      :selected="menu.selected.value"
+      :emoji="menu.menu.value.mode !== 'actions'"
+      :actions="menu.actions.value"
       @pick="pick"
-      @close="picker = null"
+      @action="act"
+      @close="menu.close"
     />
   </div>
 </template>
@@ -181,19 +190,4 @@ function onScroll() {
 .day { display: flex; align-items: center; gap: 0.75rem; margin: 1.1rem 1rem 0.25rem; color: #555; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .day::before, .day::after { content: ''; flex: 1; border-top: 1px solid #1e1e1e; }
 .tail { height: 1px; }
-.unseen {
-  position: absolute;
-  bottom: 0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #f0f0f0;
-  color: #0a0a0a;
-  border: none;
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.5);
-}
 </style>

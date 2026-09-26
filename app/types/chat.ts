@@ -58,6 +58,7 @@ export interface ChatMessageView extends LocalChatMessage {
   canEdit: boolean
   canDelete: boolean
   reactions: ChatReactionSummary[]
+  replyTo: ChatReplyPreview | null
 }
 
 // ── Realtime payloads (built by the DB triggers in 0005_chat.sql) ──
@@ -147,3 +148,22 @@ export interface ChatToastProps {
   emoji?: string
   to: string
 }
+
+// What the composer is doing besides a plain send (PR 5).
+export interface ComposerContext {
+  kind: 'reply' | 'edit'
+  name: string
+  snippet: string
+}
+
+// A message a reply points at, resolved for display.
+export interface ChatReplyPreview {
+  id: number
+  name: string
+  snippet: string
+  deleted: boolean
+}
+
+export type ChatMessageAction = 'reply' | 'edit' | 'delete' | 'copy'
+// Which parts of the message menu to show: emoji row, actions, or both (touch long-press).
+export type ChatMenuMode = 'react' | 'actions' | 'both'
