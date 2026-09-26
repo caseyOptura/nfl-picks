@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatMessageView } from '~/types/chat'
+import type { ChatMessageView, ReactionEmoji } from '~/types/chat'
 
 const props = defineProps<{
   message: ChatMessageView
@@ -10,7 +10,21 @@ const props = defineProps<{
 const emit = defineEmits<{
   retry: [clientId: string]
   discard: [clientId: string]
+  react: [messageId: number, emoji: ReactionEmoji]
+  openPicker: [messageId: number, anchor: DOMRect]
 }>()
+
+const bubble = ref<HTMLElement | null>(null)
+const reactable = computed(() => props.message.id !== null && !props.message.deletedAt)
+
+function openPicker(el: HTMLElement | null) {
+  if (reactable.value && el) emit('openPicker', props.message.id!, el.getBoundingClientRect())
+}
+
+// Touch: long-press the bubble to react. Mouse users get the hover button instead.
+onLongPress(bubble, (e) => {
+  if (e.pointerType !== 'mouse') openPicker(bubble.value)
+}, { delay: 450 })
 
 const segments = computed(() => messageSegments(props.message.body, props.nameFor))
 
@@ -46,17 +60,36 @@ const deletedLabel = computed(() =>
         <time :datetime="message.createdAt">{{ time }}</time>
       </div>
 
-      <div class="bubble" :title="grouped ? time : undefined">
-        <em v-if="message.deletedAt" class="deleted">{{ deletedLabel }}</em>
-        <template v-else>
-          <template v-for="(seg, i) in segments" :key="i">
-            <a v-if="seg.type === 'link'" :href="seg.href" target="_blank" rel="noopener noreferrer nofollow">{{ seg.text }}</a>
-            <span v-else-if="seg.type === 'mention'" class="mention">{{ seg.text }}</span>
-            <template v-else>{{ seg.text }}</template>
+      <div class="bubble-row">
+        <div ref="bubble" class="bubble" :title="grouped ? time : undefined">
+          <em v-if="message.deletedAt" class="deleted">{{ deletedLabel }}</em>
+          <template v-else>
+            <template v-for="(seg, i) in segments" :key="i">
+              <a v-if="seg.type === 'link'" :href="seg.href" target="_blank" rel="noopener noreferrer nofollow">{{ seg.text }}</a>
+              <span v-else-if="seg.type === 'mention'" class="mention">{{ seg.text }}</span>
+              <template v-else>{{ seg.text }}</template>
+            </template>
+            <span v-if="message.editedAt" class="edited">(edited)</span>
           </template>
-          <span v-if="message.editedAt" class="edited">(edited)</span>
-        </template>
+        </div>
+        <button
+          v-if="reactable"
+          type="button"
+          class="react-btn"
+          aria-label="Add reaction"
+          title="Add reaction"
+          @click="openPicker($event.currentTarget as HTMLElement)"
+        >
+          ＋☺
+        </button>
       </div>
+
+      <ChatReactionBar
+        v-if="message.reactions.length"
+        :reactions="message.reactions"
+        :name-for="nameFor"
+        @toggle="emit('react', message.id!, $event)"
+      />
 
       <div v-if="message.status === 'failed'" class="failed">
         Not sent.
@@ -94,6 +127,27 @@ const deletedLabel = computed(() =>
 }
 .msg.mine .bubble { background: #1f2a3a; border-color: #2a3a52; }
 .msg.mentioned .bubble { border-color: #fbbf24; }
+
+.bubble-row { display: flex; align-items: center; gap: 0.35rem; min-width: 0; max-width: 100%; }
+.msg.mine .bubble-row { flex-direction: row-reverse; }
+.react-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #777;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  opacity: 0;
+}
+.react-btn:hover { color: #ddd; border-color: #2a2a2a; background: #161616; }
+.msg:hover .react-btn, .react-btn:focus-visible { opacity: 1; }
+/* Touch devices long-press the bubble instead. */
+@media (hover: none) {
+  .react-btn { display: none; }
+  .bubble { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
 
 .bubble a { color: #93c5fd; }
 .mention { color: #93c5fd; font-weight: 600; }

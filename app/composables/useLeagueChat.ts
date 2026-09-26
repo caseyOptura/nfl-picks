@@ -44,6 +44,7 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
   const { userId } = useAuth()
   const hub = useChatRealtime()
   const visibility = useDocumentVisibility()
+  const reactions = useChatReactions(leagueId)
 
   const local = ref<LocalChatMessage[]>([])
   const hasMore = ref(true)
@@ -67,7 +68,7 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
         mentionsMe: !!me && !mine && m.body.includes(`](${me})`),
         canEdit: mine && m.kind === 'user' && !m.deletedAt && now - Date.parse(m.createdAt) < EDIT_WINDOW_MS,
         canDelete: !m.deletedAt && m.id !== null && (mine || isOwner.value),
-        reactions: [],
+        reactions: reactions.summaries(m.id),
       }
     })
   })
@@ -102,12 +103,15 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
     loading.value = true
     error.value = null
     const { data, error: e } = await query().order('id', { ascending: false }).limit(PAGE_SIZE)
-    loading.value = false
     if (e) {
+      loading.value = false
       error.value = e.message
       return
     }
     const rows = (data as ChatMessageRow[]).reverse()
+    // Load reactions first so chips don't pop in (and shift the list) after render.
+    await reactions.load(rows.map((r) => r.id))
+    loading.value = false
     hasMore.value = rows.length === PAGE_SIZE
     local.value = [...rows.map(fromRow), ...local.value.filter((m) => m.status !== 'sent')]
   }
@@ -117,12 +121,14 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
     if (loadingOlder.value || !hasMore.value || before === null) return
     loadingOlder.value = true
     const { data, error: e } = await query().lt('id', before).order('id', { ascending: false }).limit(PAGE_SIZE)
-    loadingOlder.value = false
     if (e) {
+      loadingOlder.value = false
       error.value = e.message
       return
     }
     const rows = data as ChatMessageRow[]
+    await reactions.load(rows.map((r) => r.id))
+    loadingOlder.value = false
     hasMore.value = rows.length === PAGE_SIZE
     upsert(rows.map(fromRow))
   }
@@ -136,6 +142,8 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
     const rows = data as ChatMessageRow[]
     if (rows.length === GAP_FILL_LIMIT) return loadLatest()
     upsert(rows.map(fromRow))
+    // Reactions on messages we already had may have changed while we were away.
+    reactions.load(local.value.flatMap((m) => (m.id === null ? [] : [m.id])))
   }
 
   async function insert(msg: LocalChatMessage) {
@@ -229,9 +237,13 @@ export function useLeagueChat(leagueId: MaybeRefOrGetter<string>, members: Ref<M
   watch(() => newestId(), () => markRead())
   watch(() => toValue(leagueId), () => {
     local.value = []
+    reactions.reset()
     hasMore.value = true
     loadLatest()
   }, { immediate: true })
 
-  return { messages, hasMore, loading, loadingOlder, error, loadOlder, send, retry, discard, reload: loadLatest }
+  return {
+    messages, hasMore, loading, loadingOlder, error,
+    loadOlder, send, retry, discard, reload: loadLatest, toggleReaction: reactions.toggle,
+  }
 }

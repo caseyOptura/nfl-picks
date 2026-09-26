@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatMessageView } from '~/types/chat'
+import type { ChatMessageView, ReactionEmoji } from '~/types/chat'
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
 const NEAR_BOTTOM_PX = 120
@@ -16,7 +16,19 @@ const emit = defineEmits<{
   loadOlder: []
   retry: [clientId: string]
   discard: [clientId: string]
+  react: [messageId: number, emoji: ReactionEmoji]
 }>()
+
+// One picker for the whole list, teleported out of the scroller so it's never clipped.
+const picker = ref<{ messageId: number, anchor: DOMRect } | null>(null)
+const pickerSelected = computed(() =>
+  props.messages.find((m) => m.id === picker.value?.messageId)?.reactions.filter((r) => r.mine).map((r) => r.emoji) ?? [],
+)
+
+function pick(emoji: ReactionEmoji) {
+  if (picker.value) emit('react', picker.value.messageId, emoji)
+  picker.value = null
+}
 
 const scroller = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
@@ -74,6 +86,7 @@ watch(() => props.messages, (next, prev) => {
   if (!el) return
   const prevHeight = el.scrollHeight
   const wasNearBottom = distanceFromBottom() < NEAR_BOTTOM_PX
+  const wasAtBottom = distanceFromBottom() < 8
   const prevFirst = prev?.[0]?.clientId
   const prevLast = prev?.[prev.length - 1]?.clientId
   const nextLast = next[next.length - 1]
@@ -89,7 +102,10 @@ watch(() => props.messages, (next, prev) => {
       if (wasNearBottom || nextLast.mine) return scrollToBottom()
       const idx = next.findIndex((m) => m.clientId === prevLast)
       unseen.value += idx >= 0 ? next.length - 1 - idx : 1
+      return
     }
+    // Same messages, new content (e.g. reaction chips): stay pinned to the bottom.
+    if (wasAtBottom) scrollToBottom()
   })
 }, { flush: 'pre' })
 
@@ -128,6 +144,8 @@ function onScroll() {
           :name-for="nameFor"
           @retry="emit('retry', $event)"
           @discard="emit('discard', $event)"
+          @react="(id, emoji) => emit('react', id, emoji)"
+          @open-picker="(messageId, anchor) => (picker = { messageId, anchor })"
         />
       </template>
       <div class="tail" />
@@ -136,6 +154,14 @@ function onScroll() {
     <button v-if="unseen" type="button" class="unseen" @click="scrollToBottom">
       ↓ {{ unseen }} new {{ unseen === 1 ? 'message' : 'messages' }}
     </button>
+
+    <ChatReactionPicker
+      v-if="picker"
+      :anchor="picker.anchor"
+      :selected="pickerSelected"
+      @pick="pick"
+      @close="picker = null"
+    />
   </div>
 </template>
 
