@@ -1,13 +1,18 @@
 import { fetchSchedule } from '../utils/espn'
 
 /**
- * Both selectable seasons in one payload. Cached briefly so a page full of
- * live scores does not fan out to ESPN on every request — the previous
- * uncached version re-fetched ~570 events per page load, which is what pushed
- * the worker into its resource limits.
+ * Both selectable seasons in one payload, cached in Cloudflare KV (the
+ * `espn-cache` mount in `nuxt.config.ts`) so the whole site shares one copy.
+ * A cache miss downloads ~7 MB from ESPN, which is what pushed the worker into
+ * its resource limits when every cold isolate paid for it.
+ *
+ * Two minutes keeps live scores reasonably fresh while staying under the KV
+ * free tier's 1,000 writes a day (at most 720 here). Stale-while-revalidate is
+ * on, so an expired entry is served immediately and refreshed in the background.
  */
 export default defineCachedEventHandler(async () => fetchSchedule(), {
   name: 'espn-schedule',
-  maxAge: 60,
+  base: 'espn-cache',
+  maxAge: 120,
   getKey: () => 'all',
 })

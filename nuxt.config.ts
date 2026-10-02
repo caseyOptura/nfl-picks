@@ -9,7 +9,19 @@ export default defineNuxtConfig({
     useSsrCookies: false,
   },
   nitro: {
-    preset: 'cloudflare-pages'
+    preset: 'cloudflare-pages',
+    // Shared cache for the ESPN schedule. Nitro's default cache is in-memory,
+    // which on Cloudflare is per isolate, so most requests landed on a cold one
+    // and re-fetched ~7 MB from ESPN — the cause of the 1102 resource-limit
+    // errors. KV is shared across isolates. `ESPN_CACHE` is a KV namespace bound
+    // to the Pages project; if the binding is missing, Nitro logs cache errors
+    // and serves the route uncached rather than failing.
+    storage: {
+      'espn-cache': { driver: 'cloudflare-kv-binding', binding: 'ESPN_CACHE' },
+    },
+    devStorage: {
+      'espn-cache': { driver: 'memory' },
+    },
   },
   app: {
     head: {
