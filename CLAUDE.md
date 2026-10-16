@@ -49,6 +49,11 @@ npm run build    # production build
 npm run preview  # preview production build
 ```
 
+`/api/schedule` is cached in a Cloudflare KV namespace bound to the Pages
+project as `ESPN_CACHE` (see `nitro.storage` in `nuxt.config.ts`). To exercise
+it locally against the production build:
+`npx wrangler pages dev dist --kv ESPN_CACHE`.
+
 ## Data reference
 
 All ESPN endpoints documented in `docs/espn-api.md`.

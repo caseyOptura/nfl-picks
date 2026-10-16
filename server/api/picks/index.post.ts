@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { fetchSchedule } from '../../utils/espn'
+import { fetchGame } from '../../utils/espn'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -10,29 +10,29 @@ export default defineEventHandler(async (event) => {
   }
 
   const { leagueId, gameId, pickedTeamId } = body
+  if (!/^\d+$/.test(gameId)) {
+    throw createError({ statusCode: 400, data: { code: 'GAME_NOT_FOUND', message: 'Game not found in schedule' } })
+  }
   const service = serverSupabaseServiceRole(event)
 
   await assertMember(service, leagueId, user.id)
 
-  // Validate the game and check lock status. Calling fetchSchedule directly
-  // avoids an HTTP round trip back into this same worker on every pick.
-  const { events } = await fetchSchedule()
-  const espnEvent = events.find(e => e.id === gameId)
+  // Validate the game and check lock status against just this one game. This
+  // used to load the whole two-season schedule (~7 MB from ESPN, uncached) on
+  // every pick, which is what pushed the worker past its resource limits.
+  const game = await fetchGame(gameId)
 
-  if (!espnEvent) {
+  if (!game) {
     throw createError({ statusCode: 400, data: { code: 'GAME_NOT_FOUND', message: 'Game not found in schedule' } })
   }
 
-  const comp = espnEvent.competitions[0]
-  const teamIds = comp.competitors.map(c => c.team.id)
-  if (!teamIds.includes(pickedTeamId)) {
+  if (!game.teamIds.includes(pickedTeamId)) {
     throw createError({ statusCode: 400, data: { code: 'INVALID_TEAM', message: 'Picked team is not in this game' } })
   }
 
-  const statusName = espnEvent.status.type.name
-  const isFinal = statusName === 'STATUS_FINAL'
-  const isInProgress = statusName === 'STATUS_IN_PROGRESS'
-  const kickoffPassed = new Date(espnEvent.date) <= new Date()
+  const isFinal = game.statusName === 'STATUS_FINAL'
+  const isInProgress = game.statusName === 'STATUS_IN_PROGRESS'
+  const kickoffPassed = new Date(game.date) <= new Date()
 
   if (isFinal || isInProgress || kickoffPassed) {
     throw createError({ statusCode: 423, data: { code: 'GAME_LOCKED', message: 'This game is locked and cannot be picked' } })
