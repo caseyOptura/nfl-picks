@@ -4,6 +4,7 @@ import {
   SEASON_TYPE_PRESEASON,
   SEASON_TYPE_REGULAR,
 } from '#shared/utils/season'
+import type { H3Event } from 'h3'
 import type { ScoreboardEvent } from '../../app/types/espn'
 
 /**
@@ -58,8 +59,6 @@ export const espnUrls = {
   teamSchedule: (id: string) => `${SITE_API}/teams/${id}/schedule`,
   /** `yyyymm` is a single calendar month, e.g. `202610`. */
   scoreboard: (yyyymm: string) => `${SITE_API}/scoreboard?dates=${yyyymm}&limit=500`,
-  event: (id: string) => `${CORE_API}/events/${id}`,
-  eventStatus: (id: string) => `${CORE_API}/events/${id}/competitions/${id}/status`,
   athlete: (id: string) => `${WEB_API}/athletes/${id}`,
   athleteStats: (id: string, year: number) =>
     `${CORE_API}/seasons/${year}/types/${SEASON_TYPE_REGULAR}/athletes/${id}/statistics`,
@@ -108,8 +107,7 @@ function trimEvent(event: ScoreboardEvent): ScoreboardEvent {
 
 /**
  * Every game of the current season and the one before it, preseason excluded.
- * Backs `/api/schedule` and nothing else — anything that needs one game should
- * use `fetchGame`, which is a few KB instead of several MB.
+ * Call `cachedSchedule` instead — a miss here downloads ~7 MB from ESPN.
  *
  * ESPN's scoreboard filters by calendar date, not by season, and a season
  * straddles two calendar years — the 2025 season's week 18 and playoffs are
@@ -151,33 +149,27 @@ function seasonMonths(season: number): string[] {
   ]
 }
 
-export interface GameSnapshot {
-  date: string
-  teamIds: string[]
-  statusName: string
-}
-
 /**
- * The few facts the picks route needs about one game, from ESPN's core API.
- * Returns null when ESPN does not know the id.
+ * `fetchSchedule` behind the shared KV cache (the `espn-cache` mount in
+ * `nuxt.config.ts`), so the whole site pays for at most one ESPN download every
+ * two minutes. Backs both `/api/schedule` and the picks route.
+ *
+ * Pass the request event so a stale-while-revalidate refresh can finish after
+ * the response is sent (Nitro hands it to `waitUntil`).
+ *
+ * Two minutes keeps live scores reasonably fresh while staying under the KV
+ * free tier's 1,000 writes a day (at most 720 here). The picks route can rely
+ * on it because a game locks at kickoff by clock time, not by ESPN's status.
+ *
+ * Picks deliberately do not look the game up on ESPN's core API: Akamai serves
+ * `sports.core.api.espn.com` with a 403 to requests from Cloudflare Workers.
  */
-export async function fetchGame(id: string): Promise<GameSnapshot | null> {
-  type CoreEvent = { date: string; competitions: { competitors: { id: string }[] }[] }
-  type CoreStatus = { type: { name: string } }
-
-  try {
-    const [event, status] = await Promise.all([
-      espnFetch<CoreEvent>(espnUrls.event(id)),
-      espnFetch<CoreStatus>(espnUrls.eventStatus(id)),
-    ])
-    return {
-      date: event.date,
-      teamIds: event.competitions[0]?.competitors.map(c => c.id) ?? [],
-      statusName: status.type.name,
-    }
-  }
-  catch (err) {
-    if (err instanceof EspnError && err.status === 404) return null
-    throw err
-  }
-}
+export const cachedSchedule = defineCachedFunction(
+  (_event?: H3Event) => fetchSchedule(),
+  {
+    name: 'espn-schedule',
+    base: 'espn-cache',
+    maxAge: 120,
+    getKey: () => 'all',
+  },
+)

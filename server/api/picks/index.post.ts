@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { fetchGame } from '../../utils/espn'
+import { cachedSchedule } from '../../utils/espn'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -10,29 +10,30 @@ export default defineEventHandler(async (event) => {
   }
 
   const { leagueId, gameId, pickedTeamId } = body
-  if (!/^\d+$/.test(gameId)) {
-    throw createError({ statusCode: 400, data: { code: 'GAME_NOT_FOUND', message: 'Game not found in schedule' } })
-  }
   const service = serverSupabaseServiceRole(event)
 
   await assertMember(service, leagueId, user.id)
 
-  // Validate the game and check lock status against just this one game. This
-  // used to load the whole two-season schedule (~7 MB from ESPN, uncached) on
-  // every pick, which is what pushed the worker past its resource limits.
-  const game = await fetchGame(gameId)
+  // Validate the game and check lock status against the cached schedule — a KV
+  // read, not an ESPN call. ESPN's status may be up to two minutes stale, which
+  // is fine: the kickoff-time check below locks the game on the clock.
+  const { events } = await cachedSchedule(event)
+  const espnEvent = events.find(e => e.id === gameId)
 
-  if (!game) {
+  if (!espnEvent) {
     throw createError({ statusCode: 400, data: { code: 'GAME_NOT_FOUND', message: 'Game not found in schedule' } })
   }
 
-  if (!game.teamIds.includes(pickedTeamId)) {
+  const comp = espnEvent.competitions[0]
+  const teamIds = comp.competitors.map(c => c.team.id)
+  if (!teamIds.includes(pickedTeamId)) {
     throw createError({ statusCode: 400, data: { code: 'INVALID_TEAM', message: 'Picked team is not in this game' } })
   }
 
-  const isFinal = game.statusName === 'STATUS_FINAL'
-  const isInProgress = game.statusName === 'STATUS_IN_PROGRESS'
-  const kickoffPassed = new Date(game.date) <= new Date()
+  const statusName = espnEvent.status.type.name
+  const isFinal = statusName === 'STATUS_FINAL'
+  const isInProgress = statusName === 'STATUS_IN_PROGRESS'
+  const kickoffPassed = new Date(espnEvent.date) <= new Date()
 
   if (isFinal || isInProgress || kickoffPassed) {
     throw createError({ statusCode: 423, data: { code: 'GAME_LOCKED', message: 'This game is locked and cannot be picked' } })
