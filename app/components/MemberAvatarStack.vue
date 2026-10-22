@@ -16,7 +16,19 @@ const shown = computed(() =>
 const rest = computed(() => members.value.slice(shown.value.length))
 
 const showRest = ref(false)
+// The member whose profile card is open, from a bubble or the "+n" list.
+const profile = ref<MemberPickSummary | null>(null)
+
+function openProfile(m: MemberPickSummary) {
+  showRest.value = false
+  profile.value = m
+}
+
 onKeyStroke('Escape', () => { showRest.value = false })
+
+// Hold the page still while either popup is open.
+const scrollLocked = useScrollLock(import.meta.client ? document.documentElement : null)
+watch(() => showRest.value || profile.value !== null, open => { scrollLocked.value = open })
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -26,11 +38,18 @@ function initials(name: string): string {
 
 <template>
   <div v-if="members.length" class="avatar-stack">
-    <div v-for="m in shown" :key="m.userId" class="avatar-wrap">
-      <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.displayName" class="avatar" />
-      <span v-else class="avatar initials">{{ initials(m.displayName) }}</span>
-      <span class="tooltip">{{ m.displayName }}</span>
-    </div>
+    <button
+      v-for="m in shown"
+      :key="m.userId"
+      type="button"
+      class="avatar-btn"
+      aria-haspopup="dialog"
+      :aria-label="m.displayName"
+      @click="openProfile(m)"
+    >
+      <img v-if="m.avatarUrl" :src="m.avatarUrl" alt="" class="avatar" />
+      <span v-else class="avatar initials" aria-hidden="true">{{ initials(m.displayName) }}</span>
+    </button>
     <template v-if="rest.length">
       <button
         type="button"
@@ -47,21 +66,29 @@ function initials(name: string): string {
         <div class="more-backdrop" @click="showRest = false">
           <div class="more-panel" role="dialog" aria-label="Also picked" @click.stop>
             <ul class="more-list">
-              <li v-for="m in rest" :key="m.userId" class="more-item">
-                <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
-                <span class="more-name">{{ m.displayName }}</span>
+              <li v-for="m in rest" :key="m.userId">
+                <button type="button" class="more-item" aria-haspopup="dialog" @click="openProfile(m)">
+                  <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
+                  <span class="more-name">{{ m.displayName }}</span>
+                </button>
               </li>
             </ul>
           </div>
         </div>
       </Teleport>
     </template>
+    <MemberProfileCard v-if="profile" :member="profile" @close="profile = null" />
   </div>
 </template>
 
 <style scoped>
 .avatar-stack { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; }
-.avatar-wrap { position: relative; }
+.avatar-btn {
+  display: block; padding: 0;
+  background: none; border: none; border-radius: 50%; cursor: pointer;
+}
+.avatar-btn:hover .avatar { border-color: #555; }
+.avatar-btn:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 .avatar {
   display: block; width: 22px; height: 22px;
   border-radius: 50%; object-fit: cover; border: 1.5px solid #333;
@@ -78,20 +105,6 @@ function initials(name: string): string {
 .more:hover { border-color: #555; color: #fff; }
 .more:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 
-/* Out of layout until shown: a hidden-but-present label still widens the page
-   when its bubble sits near the right edge. Hover-only, so not on touch. */
-.tooltip {
-  display: none;
-  position: absolute; bottom: calc(100% + 5px); left: 50%;
-  transform: translateX(-50%);
-  background: #1e1e1e; border: 1px solid #333; color: #f0f0f0;
-  font-size: 0.7rem; white-space: nowrap; padding: 3px 7px; border-radius: 5px;
-  pointer-events: none; z-index: 10;
-}
-@media (hover: hover) {
-  .avatar-wrap:hover .tooltip { display: block; }
-}
-
 .more-backdrop {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
@@ -101,11 +114,18 @@ function initials(name: string): string {
   width: min(16rem, calc(100vw - 2rem));
   max-height: 60vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.5rem;
   background: #161616; border: 1px solid #333; border-radius: 10px;
   color: #f0f0f0;
 }
 .more-list { list-style: none; margin: 0; padding: 0; }
-.more-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.5rem; }
-.more-name { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.more-item {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%;
+  padding: 0.4rem 0.5rem; border: none; border-radius: 6px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.more-item:hover { background: #1f1f1f; }
+.more-item:focus-visible { outline: 2px solid #555; outline-offset: -2px; }
+.more-name { min-width: 0; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
