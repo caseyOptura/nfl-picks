@@ -16,11 +16,15 @@ import type { ScoreboardEvent } from '../../app/types/espn'
  * served normally. Runtimes disagree about what UA they send by default
  * (Node, Workers and the browser all differ), so every ESPN call goes through
  * `espnFetch`, which sends one explicit UA and retries the transient blocks.
+ *
+ * Only `site.api.espn.com` is usable from production. Akamai answers ESPN's
+ * other hosts — `site.web.api.espn.com` and `sports.core.api.espn.com` — with a
+ * 403 for requests from Cloudflare Workers, even though both work from a laptop
+ * and from `wrangler pages dev`, so local testing will not catch it.
  */
 
 const SITE_API = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl'
-const WEB_API = 'https://site.web.api.espn.com/apis/common/v3/sports/football/nfl'
-const CORE_API = 'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl'
+const COMMON_API = 'https://site.api.espn.com/apis/common/v3/sports/football/nfl'
 
 const USER_AGENT = 'nfl-picks/1.0 (+https://github.com/caseyOptura/nfl-picks)'
 
@@ -59,9 +63,9 @@ export const espnUrls = {
   teamSchedule: (id: string) => `${SITE_API}/teams/${id}/schedule`,
   /** `yyyymm` is a single calendar month, e.g. `202610`. */
   scoreboard: (yyyymm: string) => `${SITE_API}/scoreboard?dates=${yyyymm}&limit=500`,
-  athlete: (id: string) => `${WEB_API}/athletes/${id}`,
-  athleteStats: (id: string, year: number) =>
-    `${CORE_API}/seasons/${year}/types/${SEASON_TYPE_REGULAR}/athletes/${id}/statistics`,
+  athlete: (id: string) => `${COMMON_API}/athletes/${id}`,
+  /** Regular-season stats, one row per season, for a player's whole career. */
+  athleteStats: (id: string) => `${COMMON_API}/athletes/${id}/stats?seasontype=${SEASON_TYPE_REGULAR}`,
 }
 
 /**
