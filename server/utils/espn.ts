@@ -202,7 +202,9 @@ export function cachedSchedule(event: H3Event) {
  * two-minute schedule cache does). Call `cachedLive` instead.
  */
 export async function fetchLive(): Promise<LiveGame[]> {
-  const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.currentScoreboard())
+  // No retries: the client polls again in 20s, and a retry would only make a
+  // stalled request wait up to 15s before failing.
+  const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.currentScoreboard(), { retries: 0 })
   const live: LiveGame[] = []
 
   for (const event of payload.events ?? []) {
@@ -241,12 +243,18 @@ export async function fetchLive(): Promise<LiveGame[]> {
  * `fetchLive` behind a 15-second per-isolate cache. Memory, not KV: refreshing
  * this often would exhaust the free tier's 1,000 KV writes a day in an
  * afternoon. A cold isolate costs one ~250 KB ESPN fetch.
+ *
+ * Past a minute old the entry is not served at all: an isolate idle since an
+ * earlier game would otherwise hand back that old state for one poll, and a
+ * score could briefly jump backwards. If that fetch fails, the request fails
+ * and the client keeps the last state it had.
  */
 export function cachedLive(event: H3Event) {
   return swrCache(event, {
     storage: 'espn-memory',
     key: 'live.json',
     maxAge: 15,
+    maxStale: 60,
     fetch: fetchLive,
   })
 }
