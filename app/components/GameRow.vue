@@ -17,7 +17,7 @@ defineProps<{ game: GameView }>()
       <span v-else class="team-abbr-fallback">{{ game.away.abbreviation }}</span>
       <span class="team-ident">
         <span class="side-label">Away</span>
-        <span class="team-abbr">{{ game.away.abbreviation }}</span>
+        <span class="team-abbr">{{ game.away.abbreviation }} <PossessionIcon v-if="game.live?.possessionTeamId === game.away.teamId" /></span>
         <span v-if="game.away.record" class="team-record">{{ game.away.record }}</span>
       </span>
       <span v-if="game.away.score !== undefined" class="score">{{ game.away.score }}</span>
@@ -25,7 +25,7 @@ defineProps<{ game: GameView }>()
 
     <div class="game-meta">
       <span v-if="game.isFinal" class="status-final">Final</span>
-      <span v-else-if="game.isInProgress" class="status-live">Live</span>
+      <LiveGameStatus v-else-if="game.isInProgress" :live="game.live" />
       <template v-else>
         <span class="kickoff-time">{{ formatGameTime(game.kickoffUtc) }}</span>
         <span v-if="game.venue" class="venue">{{ game.venue }}</span>
@@ -36,7 +36,7 @@ defineProps<{ game: GameView }>()
       <span v-if="game.home.score !== undefined" class="score">{{ game.home.score }}</span>
       <span class="team-ident">
         <span class="side-label">Home</span>
-        <span class="team-abbr">{{ game.home.abbreviation }}</span>
+        <span class="team-abbr"><PossessionIcon v-if="game.live?.possessionTeamId === game.home.teamId" /> {{ game.home.abbreviation }}</span>
         <span v-if="game.home.record" class="team-record">{{ game.home.record }}</span>
       </span>
       <img
@@ -66,10 +66,21 @@ defineProps<{ game: GameView }>()
   gap: 0.4rem;
   min-width: 0;
   flex: 1;
+  /* Winner bar on the outer edge; transparent otherwise so nothing shifts. */
+  border-left: 3px solid transparent;
+  padding-left: 0.4rem;
 }
 
 .team-side--home {
   justify-content: flex-end;
+  border-left: none;
+  padding-left: 0;
+  border-right: 3px solid transparent;
+  padding-right: 0.4rem;
+}
+
+.team-side.winner {
+  border-color: #22c55e;
 }
 
 .team-logo {
@@ -154,14 +165,6 @@ defineProps<{ game: GameView }>()
   color: #888;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.status-live {
-  font-size: 0.75rem;
-  color: #4ade80;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
 }
 
 .kickoff-time {

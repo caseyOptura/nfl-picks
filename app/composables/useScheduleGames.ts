@@ -32,9 +32,11 @@ export function useScheduleGames() {
     $fetch<ScoreboardResponse>('/api/schedule')
   )
 
-  const games = computed<GameView[]>(() =>
+  const scheduled = computed<GameView[]>(() =>
     (data.value?.events ?? []).map(mapScoreboardEvent)
   )
+  const { withLive } = useLiveGames(scheduled)
+  const games = computed(() => scheduled.value.map(withLive))
 
   /** Seasons the payload actually covers; falls back to the date-derived pair. */
   const seasons = computed<number[]>(() => data.value?.seasons ?? selectableSeasons())

@@ -17,7 +17,14 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
   const { userId } = useAuth()
   const client = useSupabaseClient()
 
-  const games = ref<PickableGame[]>([])
+  // As loaded; `games` overlays live scores and status on top.
+  const loaded = ref<PickableGame[]>([])
+  const { withLive } = useLiveGames(() => loaded.value.map(pg => pg.game))
+  const games = computed(() => loaded.value.map((pg) => {
+    const game = withLive(pg.game)
+    if (game === pg.game) return pg
+    return { ...pg, game, locked: pg.locked || isGameLocked(game), correct: getCorrect(game, pg.pickedTeamId) }
+  }))
   const pending = ref(false)
   const error = ref<Error | null>(null)
 
@@ -115,7 +122,7 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
       const allGames = (scheduleData.events ?? []).map(mapScoreboardEvent)
       const filtered = allGames.filter(g => g.seasonYear === year)
 
-      games.value = filtered.map(g => {
+      loaded.value = filtered.map(g => {
         const pickedTeamId = pickMap.get(g.id) ?? null
         const memberPicks: MemberPickSummary[] = (allPicksByGame.get(g.id) ?? [])
           .filter(p => p.user_id !== userId.value)
@@ -147,7 +154,7 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
 
   async function submitPick(gameId: string, teamId: string): Promise<{ ok: boolean; error: string | null }> {
     const id = toValue(leagueId)
-    const target = games.value.find(pg => pg.game.id === gameId)
+    const target = loaded.value.find(pg => pg.game.id === gameId)
     if (!target) return { ok: false, error: 'Game not found' }
     if (target.locked) return { ok: false, error: 'Game is locked' }
 
