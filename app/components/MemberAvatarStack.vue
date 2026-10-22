@@ -15,7 +15,8 @@ const shown = computed(() =>
 )
 const rest = computed(() => members.value.slice(shown.value.length))
 
-const popoverId = useId()
+const showRest = ref(false)
+onKeyStroke('Escape', () => { showRest.value = false })
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -34,21 +35,26 @@ function initials(name: string): string {
       <button
         type="button"
         class="avatar more"
-        :popovertarget="popoverId"
+        aria-haspopup="dialog"
         :aria-label="`${rest.length} more: ${rest.map(m => m.displayName).join(', ')}`"
+        @click="showRest = true"
       >
         +{{ rest.length }}
       </button>
-      <!-- Native popover: renders in the top layer, so it can never widen the page,
-           and closes on outside tap or Escape. -->
-      <div :id="popoverId" popover class="more-popover">
-        <ul class="more-list">
-          <li v-for="m in rest" :key="m.userId" class="more-item">
-            <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
-            <span class="more-name">{{ m.displayName }}</span>
-          </li>
-        </ul>
-      </div>
+      <!-- Teleported and fixed, so it is out of the row's layout and can never
+           widen the page. Only rendered while open. -->
+      <Teleport v-if="showRest" to="body">
+        <div class="more-backdrop" @click="showRest = false">
+          <div class="more-panel" role="dialog" aria-label="Also picked" @click.stop>
+            <ul class="more-list">
+              <li v-for="m in rest" :key="m.userId" class="more-item">
+                <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
+                <span class="more-name">{{ m.displayName }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Teleport>
     </template>
   </div>
 </template>
@@ -86,7 +92,12 @@ function initials(name: string): string {
   .avatar-wrap:hover .tooltip { display: block; }
 }
 
-.more-popover {
+.more-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / 0.5);
+}
+.more-panel {
   width: min(16rem, calc(100vw - 2rem));
   max-height: 60vh;
   overflow-y: auto;
@@ -94,7 +105,6 @@ function initials(name: string): string {
   background: #161616; border: 1px solid #333; border-radius: 10px;
   color: #f0f0f0;
 }
-.more-popover::backdrop { background: rgba(0, 0, 0, 0.5); }
 .more-list { list-style: none; margin: 0; padding: 0; }
 .more-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.5rem; }
 .more-name { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
