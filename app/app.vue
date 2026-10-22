@@ -27,4 +27,10 @@ const isMobile = useMediaQuery('(max-width: 767px)')
 body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #f0f0f0; }
 h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.25rem; }
 h2 { font-size: 1rem; font-weight: 700; color: #ccc; margin-bottom: 0.5rem; }
+/* iOS Safari zooms in on focus of any field under 16px and stays zoomed after
+   navigating (e.g. login → profile), leaving the page wider than the screen.
+   !important beats the components' scoped font sizes. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+}
 </style>
