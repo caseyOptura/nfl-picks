@@ -1,33 +1,67 @@
-import { espnFetch, espnUrls, EspnError } from '../../../utils/espn'
+import { espnFetch, espnUrls } from '../../../utils/espn'
 import { currentSeasonYear } from '#shared/utils/season'
+import type { PlayerStatsResponse, StatsCategory } from '../../../../app/types/espn'
+
+/** ESPN's career stats: per category, parallel arrays of labels and one row per season. */
+interface CareerStats {
+  categories?: {
+    name: string
+    displayName: string
+    labels: string[]
+    names: string[]
+    displayNames: string[]
+    statistics?: { season?: { year?: number }; stats: string[] }[]
+  }[]
+}
 
 /**
- * Regular-season stats for one player.
+ * Regular-season stats for one player, reshaped into the per-category list the
+ * player page renders.
  *
- * A player with no stats in the current season yet (injured, or early in the
- * year before ESPN publishes them) 404s on the current season while the
- * previous season still resolves, so fall back one year rather than showing an
- * empty stat sheet. Genuine upstream failures still surface as errors instead
- * of being flattened into "no stats".
+ * ESPN returns the whole career in one call, so the season is picked here: the
+ * current one if the player has stats in it yet, otherwise last season (an
+ * injured player, or early in the year before ESPN publishes them), rather than
+ * showing an empty stat sheet. Every category comes from that same season.
  */
-export default defineCachedEventHandler(async (event) => {
+export default defineCachedEventHandler(async (event): Promise<PlayerStatsResponse> => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing athlete id' })
 
-  const current = currentSeasonYear()
+  const career = await espnFetch<CareerStats>(espnUrls.athleteStats(id))
+  const categories = career.categories ?? []
 
-  for (const year of [current, current - 1]) {
-    try {
-      const stats = await espnFetch<Record<string, unknown>>(espnUrls.athleteStats(id, year))
-      // `seasonYear`, not `season` — ESPN's own payload already uses `season`.
-      return { ...stats, seasonYear: year }
-    } catch (error) {
-      if (error instanceof EspnError && error.status === 404) continue
-      throw error
-    }
+  const current = currentSeasonYear()
+  const hasSeason = (year: number) =>
+    categories.some(c => c.statistics?.some(row => row.season?.year === year))
+  const seasonYear = [current, current - 1].find(hasSeason)
+
+  if (seasonYear == null) return { seasonYear: null, splits: { categories: [] } }
+
+  const result: StatsCategory[] = []
+  for (const cat of categories) {
+    // A player traded mid-season can have a row per team; take the last one.
+    const row = cat.statistics?.findLast(r => r.season?.year === seasonYear)
+    if (!row) continue
+
+    result.push({
+      name: cat.name,
+      displayName: cat.displayName,
+      stats: cat.names.map((name, i) => {
+        const displayValue = row.stats[i] ?? ''
+        const value = Number(displayValue.replace(/,/g, ''))
+        return {
+          name,
+          displayName: cat.displayNames[i] ?? name,
+          shortDisplayName: cat.labels[i],
+          abbreviation: cat.labels[i],
+          value: Number.isFinite(value) ? value : null,
+          displayValue,
+        }
+      }),
+    })
   }
 
-  return { seasonYear: null, splits: { categories: [] } }
+  return { seasonYear, splits: { categories: result } }
 }, {
   name: 'espn-athlete-stats',
   maxAge: 60 * 10,
