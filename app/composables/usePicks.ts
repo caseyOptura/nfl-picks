@@ -60,6 +60,14 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
     return (live ?? sections[sections.length - 1]!).week
   })
 
+  // Weeks with at least one game still open that the user hasn't picked.
+  // Recomputes as picks are made, so a week's marker clears on its last pick.
+  const weeksNeedingPicks = computed(() => new Set(
+    byWeek.value
+      .filter(s => s.games.some(pg => !pg.locked && pg.pickedTeamId === null))
+      .map(s => s.week),
+  ))
+
   async function refresh() {
     const id = toValue(leagueId)
     const year = toValue(seasonYear)
@@ -160,5 +168,5 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
     { immediate: true }
   )
 
-  return { games, byWeek, currentWeek, pending, error, refresh, submitPick }
+  return { games, byWeek, currentWeek, weeksNeedingPicks, pending, error, refresh, submitPick }
 }

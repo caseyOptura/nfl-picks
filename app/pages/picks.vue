@@ -13,7 +13,7 @@ const activeLeague = ref<LeagueListItem | null>(null)
 const activeLeagueId = computed(() => activeLeague.value?.id ?? '')
 const seasonYear = computed(() => activeLeague.value?.season_year ?? currentSeasonYear())
 
-const { byWeek, currentWeek, pending: picksPending, error: picksError, submitPick } = usePicks(activeLeagueId, seasonYear)
+const { byWeek, currentWeek, weeksNeedingPicks, pending: picksPending, error: picksError, submitPick } = usePicks(activeLeagueId, seasonYear)
 
 // Opens on the current week; a week the user picks sticks until the schedule
 // no longer has it (e.g. switching to a league in a different season).
@@ -87,7 +87,13 @@ async function handlePick(gameId: string, teamId: string) {
         <EmptyState v-if="byWeek.length === 0" message="No games scheduled yet." />
 
         <div v-else class="weeks">
-          <PickWeekTabs :weeks="weeks" :active="activeWeek!" @change="selectedWeek = $event" />
+          <PickWeekTabs
+            :weeks="weeks"
+            :active="activeWeek!"
+            :current="currentWeek"
+            :needs-picks="weeksNeedingPicks"
+            @change="selectedWeek = $event"
+          />
           <PickWeekSection
             v-if="activeSection"
             :key="String(activeSection.week)"

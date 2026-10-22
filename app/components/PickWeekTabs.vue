@@ -1,5 +1,12 @@
 <script setup lang="ts">
-const props = defineProps<{ weeks: (number | string)[]; active: number | string }>()
+const props = defineProps<{
+  weeks: (number | string)[]
+  active: number | string
+  /** The week in progress; gets a "Now" marker. */
+  current: number | string | null
+  /** Weeks with open games the user hasn't picked; each gets a dot. */
+  needsPicks: Set<number | string>
+}>()
 const emit = defineEmits<{ change: [week: number | string] }>()
 
 const strip = ref<HTMLElement | null>(null)
@@ -45,10 +52,13 @@ function onKeydown(e: KeyboardEvent) {
       :class="{ active: week === active }"
       :aria-selected="week === active"
       :tabindex="week === active ? 0 : -1"
-      :data-label="label(week)"
       @click="emit('change', week)"
     >
-      {{ label(week) }}
+      <span class="label" :data-label="label(week)">{{ label(week) }}</span>
+      <span v-if="week === current" class="now" aria-hidden="true">Now</span>
+      <span v-if="needsPicks.has(week)" class="dot" aria-hidden="true" />
+      <span v-if="week === current" class="sr-only">, current week</span>
+      <span v-if="needsPicks.has(week)" class="sr-only">, picks to make</span>
     </button>
   </div>
 </template>
@@ -71,10 +81,11 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .week-tab {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
+  gap: 0.4rem;
   padding: 0.6rem 0.75rem 0.55rem;
   margin-bottom: -1px;
   background: transparent;
@@ -91,8 +102,14 @@ function onKeydown(e: KeyboardEvent) {
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
+.label {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* Reserve the bold width so the strip does not shift when a tab is selected. */
-.week-tab::after {
+.label::after {
   content: attr(data-label);
   height: 0;
   overflow: hidden;
@@ -114,5 +131,41 @@ function onKeydown(e: KeyboardEvent) {
   font-weight: 800;
   background: #161616;
   border-bottom-color: #fff;
+}
+
+.now {
+  padding: 0.1rem 0.3rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.week-tab.active .now {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* Amber, so it reads as "to do" rather than the app's red (unread / wrong pick). */
+.dot {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.3rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 </style>
