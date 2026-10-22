@@ -13,7 +13,18 @@ const activeLeague = ref<LeagueListItem | null>(null)
 const activeLeagueId = computed(() => activeLeague.value?.id ?? '')
 const seasonYear = computed(() => activeLeague.value?.season_year ?? currentSeasonYear())
 
-const { byWeek, pending: picksPending, error: picksError, submitPick } = usePicks(activeLeagueId, seasonYear)
+const { byWeek, currentWeek, pending: picksPending, error: picksError, submitPick } = usePicks(activeLeagueId, seasonYear)
+
+// Opens on the current week; a week the user picks sticks until the schedule
+// no longer has it (e.g. switching to a league in a different season).
+const selectedWeek = ref<number | string | null>(null)
+const weeks = computed(() => byWeek.value.map(s => s.week))
+const activeWeek = computed(() =>
+  selectedWeek.value !== null && weeks.value.includes(selectedWeek.value)
+    ? selectedWeek.value
+    : currentWeek.value,
+)
+const activeSection = computed(() => byWeek.value.find(s => s.week === activeWeek.value) ?? null)
 
 const pending = computed(() => leaguesPending.value || picksPending.value)
 const error = computed(() => leaguesError.value || picksError.value)
@@ -76,11 +87,12 @@ async function handlePick(gameId: string, teamId: string) {
         <EmptyState v-if="byWeek.length === 0" message="No games scheduled yet." />
 
         <div v-else class="weeks">
+          <PickWeekTabs :weeks="weeks" :active="activeWeek!" @change="selectedWeek = $event" />
           <PickWeekSection
-            v-for="section in byWeek"
-            :key="String(section.week)"
-            :week="section.week"
-            :games="section.games"
+            v-if="activeSection"
+            :key="String(activeSection.week)"
+            :week="activeSection.week"
+            :games="activeSection.games"
             @pick="handlePick"
           />
         </div>
@@ -127,7 +139,7 @@ async function handlePick(gameId: string, teamId: string) {
 .weeks {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .link-leagues {

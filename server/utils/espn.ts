@@ -169,7 +169,7 @@ function seasonMonths(season: number): string[] {
  * `sports.core.api.espn.com` with a 403 to requests from Cloudflare Workers.
  */
 export const cachedSchedule = defineCachedFunction(
-  (_event?: H3Event) => fetchSchedule(),
+  (_event: H3Event) => fetchSchedule(),
   {
     name: 'espn-schedule',
     base: 'espn-cache',

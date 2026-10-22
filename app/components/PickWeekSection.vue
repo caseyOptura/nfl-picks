@@ -11,16 +11,10 @@ const emit = defineEmits<{ pick: [gameId: string, teamId: string] }>()
 function handlePick(gameId: string, teamId: string) {
   emit('pick', gameId, teamId)
 }
-
-function weekLabel(week: number | string): string {
-  if (typeof week === 'string') return week
-  return `Week ${week}`
-}
 </script>
 
 <template>
-  <section class="week-section">
-    <h2 class="week-heading">{{ weekLabel(week) }}</h2>
+  <section class="week-section" role="tabpanel" :aria-label="typeof week === 'string' ? week : `Week ${week}`">
     <div class="games-list">
       <PickGameRow
         v-for="pg in games"
@@ -37,17 +31,6 @@ function weekLabel(week: number | string): string {
   display: flex;
   flex-direction: column;
   gap: 0;
-}
-
-.week-heading {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.75rem 0 0.25rem;
-  margin: 0;
-  border-top: 1px solid #222;
 }
 
 .games-list {
