@@ -16,7 +16,35 @@ const shown = computed(() =>
 const rest = computed(() => members.value.slice(shown.value.length))
 
 const showRest = ref(false)
-onKeyStroke('Escape', () => { showRest.value = false })
+
+// Tapping a bubble shows that member's name; hover does the same with a mouse.
+const stack = ref<HTMLElement | null>(null)
+const openId = ref<string | null>(null)
+const tipShift = ref(0)
+
+function toggleName(userId: string, e: MouseEvent) {
+  if (openId.value === userId) {
+    openId.value = null
+    return
+  }
+  openId.value = userId
+  tipShift.value = 0
+  // Nudge the label back on screen if it would hang off either edge.
+  const tip = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.tooltip')
+  nextTick(() => {
+    if (!tip) return
+    const r = tip.getBoundingClientRect()
+    const margin = 8
+    if (r.right > window.innerWidth - margin) tipShift.value = window.innerWidth - margin - r.right
+    else if (r.left < margin) tipShift.value = margin - r.left
+  })
+}
+
+onClickOutside(stack, () => { openId.value = null })
+onKeyStroke('Escape', () => {
+  showRest.value = false
+  openId.value = null
+})
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -25,12 +53,25 @@ function initials(name: string): string {
 </script>
 
 <template>
-  <div v-if="members.length" class="avatar-stack">
-    <div v-for="m in shown" :key="m.userId" class="avatar-wrap">
-      <img v-if="m.avatarUrl" :src="m.avatarUrl" :alt="m.displayName" class="avatar" />
-      <span v-else class="avatar initials">{{ initials(m.displayName) }}</span>
-      <span class="tooltip">{{ m.displayName }}</span>
-    </div>
+  <div v-if="members.length" ref="stack" class="avatar-stack">
+    <button
+      v-for="m in shown"
+      :key="m.userId"
+      type="button"
+      class="avatar-wrap"
+      :aria-label="m.displayName"
+      :aria-expanded="openId === m.userId"
+      @click="toggleName(m.userId, $event)"
+    >
+      <img v-if="m.avatarUrl" :src="m.avatarUrl" alt="" class="avatar" />
+      <span v-else class="avatar initials" aria-hidden="true">{{ initials(m.displayName) }}</span>
+      <span
+        class="tooltip"
+        :class="{ open: openId === m.userId }"
+        :style="openId === m.userId && tipShift ? { '--shift': `${tipShift}px` } : undefined"
+        aria-hidden="true"
+      >{{ m.displayName }}</span>
+    </button>
     <template v-if="rest.length">
       <button
         type="button"
@@ -61,7 +102,11 @@ function initials(name: string): string {
 
 <style scoped>
 .avatar-stack { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; }
-.avatar-wrap { position: relative; }
+.avatar-wrap {
+  position: relative; display: block; padding: 0;
+  background: none; border: none; border-radius: 50%; cursor: pointer;
+}
+.avatar-wrap:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 .avatar {
   display: block; width: 22px; height: 22px;
   border-radius: 50%; object-fit: cover; border: 1.5px solid #333;
@@ -79,15 +124,17 @@ function initials(name: string): string {
 .more:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 
 /* Out of layout until shown: a hidden-but-present label still widens the page
-   when its bubble sits near the right edge. Hover-only, so not on touch. */
+   when its bubble sits near the right edge. Shown on tap (.open), or on hover
+   with a mouse; a tapped label is nudged back on screen in toggleName(). */
 .tooltip {
   display: none;
   position: absolute; bottom: calc(100% + 5px); left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--shift, 0px)));
   background: #1e1e1e; border: 1px solid #333; color: #f0f0f0;
   font-size: 0.7rem; white-space: nowrap; padding: 3px 7px; border-radius: 5px;
   pointer-events: none; z-index: 10;
 }
+.tooltip.open { display: block; }
 @media (hover: hover) {
   .avatar-wrap:hover .tooltip { display: block; }
 }
