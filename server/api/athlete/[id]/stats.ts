@@ -23,10 +23,18 @@ interface CareerStats {
  * injured player, or early in the year before ESPN publishes them), rather than
  * showing an empty stat sheet. Every category comes from that same season.
  */
-export default defineCachedEventHandler(async (event): Promise<PlayerStatsResponse> => {
+export default defineEventHandler((event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing athlete id' })
+  return swrCache(event, {
+    storage: 'espn-memory',
+    key: `athlete-stats:${id}`,
+    maxAge: 60 * 10,
+    fetch: () => fetchPlayerStats(id),
+  })
+})
 
+async function fetchPlayerStats(id: string): Promise<PlayerStatsResponse> {
   const career = await espnFetch<CareerStats>(espnUrls.athleteStats(id))
   const categories = career.categories ?? []
 
@@ -62,8 +70,4 @@ export default defineCachedEventHandler(async (event): Promise<PlayerStatsRespon
   }
 
   return { seasonYear, splits: { categories: result } }
-}, {
-  name: 'espn-athlete-stats',
-  maxAge: 60 * 10,
-  getKey: event => getRouterParam(event, 'id') ?? 'unknown',
-})
+}

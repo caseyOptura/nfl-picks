@@ -1,11 +1,12 @@
 import { espnFetch, espnUrls } from '../../../utils/espn'
 
-export default defineCachedEventHandler(async (event) => {
+export default defineEventHandler((event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing team id' })
-  return espnFetch(espnUrls.teamSchedule(id))
-}, {
-  name: 'espn-team-schedule',
-  maxAge: 60,
-  getKey: event => getRouterParam(event, 'id') ?? 'unknown',
+  return swrCache(event, {
+    storage: 'espn-memory',
+    key: `team-schedule:${id}`,
+    maxAge: 60,
+    fetch: () => espnFetch(espnUrls.teamSchedule(id)),
+  })
 })

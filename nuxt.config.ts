@@ -18,9 +18,14 @@ export default defineNuxtConfig({
     // and serves the route uncached rather than failing.
     storage: {
       'espn-cache': { driver: 'cloudflare-kv-binding', binding: 'ESPN_CACHE' },
+      // Per-isolate cache for the smaller per-team / per-player ESPN routes.
+      // Kept out of KV: hundreds of keys would blow the free tier's 1,000
+      // writes a day.
+      'espn-memory': { driver: 'memory' },
     },
     devStorage: {
       'espn-cache': { driver: 'memory' },
+      'espn-memory': { driver: 'memory' },
     },
   },
   app: {
