@@ -16,35 +16,15 @@ const shown = computed(() =>
 const rest = computed(() => members.value.slice(shown.value.length))
 
 const showRest = ref(false)
+// The member whose profile card is open, from a bubble or the "+n" list.
+const profile = ref<MemberPickSummary | null>(null)
 
-// Tapping a bubble shows that member's name; hover does the same with a mouse.
-const stack = ref<HTMLElement | null>(null)
-const openId = ref<string | null>(null)
-const tipShift = ref(0)
-
-function toggleName(userId: string, e: MouseEvent) {
-  if (openId.value === userId) {
-    openId.value = null
-    return
-  }
-  openId.value = userId
-  tipShift.value = 0
-  // Nudge the label back on screen if it would hang off either edge.
-  const tip = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.tooltip')
-  nextTick(() => {
-    if (!tip) return
-    const r = tip.getBoundingClientRect()
-    const margin = 8
-    if (r.right > window.innerWidth - margin) tipShift.value = window.innerWidth - margin - r.right
-    else if (r.left < margin) tipShift.value = margin - r.left
-  })
+function openProfile(m: MemberPickSummary) {
+  showRest.value = false
+  profile.value = m
 }
 
-onClickOutside(stack, () => { openId.value = null })
-onKeyStroke('Escape', () => {
-  showRest.value = false
-  openId.value = null
-})
+onKeyStroke('Escape', () => { showRest.value = false })
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -53,24 +33,18 @@ function initials(name: string): string {
 </script>
 
 <template>
-  <div v-if="members.length" ref="stack" class="avatar-stack">
+  <div v-if="members.length" class="avatar-stack">
     <button
       v-for="m in shown"
       :key="m.userId"
       type="button"
-      class="avatar-wrap"
+      class="avatar-btn"
+      aria-haspopup="dialog"
       :aria-label="m.displayName"
-      :aria-expanded="openId === m.userId"
-      @click="toggleName(m.userId, $event)"
+      @click="openProfile(m)"
     >
       <img v-if="m.avatarUrl" :src="m.avatarUrl" alt="" class="avatar" />
       <span v-else class="avatar initials" aria-hidden="true">{{ initials(m.displayName) }}</span>
-      <span
-        class="tooltip"
-        :class="{ open: openId === m.userId }"
-        :style="openId === m.userId && tipShift ? { '--shift': `${tipShift}px` } : undefined"
-        aria-hidden="true"
-      >{{ m.displayName }}</span>
     </button>
     <template v-if="rest.length">
       <button
@@ -88,25 +62,29 @@ function initials(name: string): string {
         <div class="more-backdrop" @click="showRest = false">
           <div class="more-panel" role="dialog" aria-label="Also picked" @click.stop>
             <ul class="more-list">
-              <li v-for="m in rest" :key="m.userId" class="more-item">
-                <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
-                <span class="more-name">{{ m.displayName }}</span>
+              <li v-for="m in rest" :key="m.userId">
+                <button type="button" class="more-item" aria-haspopup="dialog" @click="openProfile(m)">
+                  <UserAvatar :name="m.displayName" :url="m.avatarUrl" :size="28" />
+                  <span class="more-name">{{ m.displayName }}</span>
+                </button>
               </li>
             </ul>
           </div>
         </div>
       </Teleport>
     </template>
+    <MemberProfileCard v-if="profile" :member="profile" @close="profile = null" />
   </div>
 </template>
 
 <style scoped>
 .avatar-stack { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; }
-.avatar-wrap {
-  position: relative; display: block; padding: 0;
+.avatar-btn {
+  display: block; padding: 0;
   background: none; border: none; border-radius: 50%; cursor: pointer;
 }
-.avatar-wrap:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
+.avatar-btn:hover .avatar { border-color: #555; }
+.avatar-btn:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 .avatar {
   display: block; width: 22px; height: 22px;
   border-radius: 50%; object-fit: cover; border: 1.5px solid #333;
@@ -123,22 +101,6 @@ function initials(name: string): string {
 .more:hover { border-color: #555; color: #fff; }
 .more:focus-visible { outline: 2px solid #555; outline-offset: 1px; }
 
-/* Out of layout until shown: a hidden-but-present label still widens the page
-   when its bubble sits near the right edge. Shown on tap (.open), or on hover
-   with a mouse; a tapped label is nudged back on screen in toggleName(). */
-.tooltip {
-  display: none;
-  position: absolute; bottom: calc(100% + 5px); left: 50%;
-  transform: translateX(calc(-50% + var(--shift, 0px)));
-  background: #1e1e1e; border: 1px solid #333; color: #f0f0f0;
-  font-size: 0.7rem; white-space: nowrap; padding: 3px 7px; border-radius: 5px;
-  pointer-events: none; z-index: 10;
-}
-.tooltip.open { display: block; }
-@media (hover: hover) {
-  .avatar-wrap:hover .tooltip { display: block; }
-}
-
 .more-backdrop {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
@@ -153,6 +115,12 @@ function initials(name: string): string {
   color: #f0f0f0;
 }
 .more-list { list-style: none; margin: 0; padding: 0; }
-.more-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.5rem; }
-.more-name { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.more-item {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%;
+  padding: 0.4rem 0.5rem; border: none; border-radius: 6px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.more-item:hover { background: #1f1f1f; }
+.more-item:focus-visible { outline: 2px solid #555; outline-offset: -2px; }
+.more-name { min-width: 0; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

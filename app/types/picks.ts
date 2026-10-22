@@ -62,6 +62,9 @@ export interface LeaderboardEntry {
 export interface MemberPickSummary {
   userId: string
   displayName: string
+  /** Shown on the member's profile card; null when not set. */
+  nickname: string | null
+  fullName: string | null
   avatarUrl: string | null
   pickedTeamId: string
 }

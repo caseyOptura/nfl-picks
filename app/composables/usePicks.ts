@@ -91,11 +91,17 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
         .select('id, nickname, first_name, last_name, avatar_url')
         .in('id', memberUserIds)
 
-      const memberMap = new Map<string, { displayName: string; avatarUrl: string | null }>()
+      type MemberInfo = Pick<MemberPickSummary, 'displayName' | 'nickname' | 'fullName' | 'avatarUrl'>
+      const memberMap = new Map<string, MemberInfo>()
       for (const p of (profilesData ?? []) as ProfileRow[]) {
-        const displayName = p.nickname
-          ?? ([p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'Member')
-        memberMap.set(p.id, { displayName, avatarUrl: p.avatar_url })
+        const nickname = p.nickname?.trim() || null
+        const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || null
+        memberMap.set(p.id, {
+          displayName: nickname ?? fullName ?? 'Member',
+          nickname,
+          fullName,
+          avatarUrl: p.avatar_url,
+        })
       }
 
       const pickMap = new Map<string, string>()
@@ -118,6 +124,8 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
             return {
               userId: p.user_id,
               displayName: info?.displayName ?? 'Member',
+              nickname: info?.nickname ?? null,
+              fullName: info?.fullName ?? null,
               avatarUrl: info?.avatarUrl ?? null,
               pickedTeamId: p.picked_team_id,
             }
