@@ -26,6 +26,10 @@ function openProfile(m: MemberPickSummary) {
 
 onKeyStroke('Escape', () => { showRest.value = false })
 
+// Hold the page still while either popup is open.
+const scrollLocked = useScrollLock(import.meta.client ? document.documentElement : null)
+watch(() => showRest.value || profile.value !== null, open => { scrollLocked.value = open })
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
@@ -110,6 +114,7 @@ function initials(name: string): string {
   width: min(16rem, calc(100vw - 2rem));
   max-height: 60vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.5rem;
   background: #161616; border: 1px solid #333; border-radius: 10px;
   color: #f0f0f0;
