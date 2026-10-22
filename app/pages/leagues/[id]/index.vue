@@ -4,7 +4,7 @@ definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const leagueId = route.params.id as string
 
-const { league, members, isOwner, pending, error, refresh, updateLeague, removeMember } = useLeague(leagueId)
+const { league, members, isOwner, pending, error, refresh, updateLeague, removeMember, deleteLeague } = useLeague(leagueId)
 const { invitations, invite, resend } = useInvitations(leagueId)
 
 async function handleSave(patch: { name: string; season_year: number }) {
@@ -17,6 +17,22 @@ function handlePhotoUploaded(url: string) {
 
 async function handleRemoveMember(userId: string) {
   await removeMember(userId)
+}
+
+const confirmingDelete = ref(false)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+async function handleDeleteLeague() {
+  deleting.value = true
+  deleteError.value = null
+  const result = await deleteLeague()
+  deleting.value = false
+  if (!result.ok) {
+    deleteError.value = result.error
+    return
+  }
+  await navigateTo('/leagues')
 }
 </script>
 
@@ -70,6 +86,25 @@ async function handleRemoveMember(userId: string) {
         <NuxtLink :to="'/leagues/' + leagueId + '/stats'" class="page-link">View Standings</NuxtLink>
         <NuxtLink :to="'/picks?league=' + leagueId" class="page-link">Make Picks</NuxtLink>
       </div>
+
+      <section v-if="isOwner" class="section danger-zone">
+        <h2>Delete League</h2>
+        <p class="danger-text">
+          Permanently deletes this league along with its members, picks, invitations, and chat history.
+          This can't be undone.
+        </p>
+        <div class="danger-actions">
+          <template v-if="confirmingDelete">
+            <span class="confirm-text">Delete “{{ league.name }}”?</span>
+            <button class="danger-btn confirm" :disabled="deleting" @click="handleDeleteLeague">
+              {{ deleting ? 'Deleting…' : 'Yes, delete' }}
+            </button>
+            <button class="danger-btn cancel" :disabled="deleting" @click="confirmingDelete = false">Cancel</button>
+          </template>
+          <button v-else class="danger-btn" @click="confirmingDelete = true">Delete league</button>
+        </div>
+        <p v-if="deleteError" class="delete-error">{{ deleteError }}</p>
+      </section>
     </template>
   </main>
 </template>
@@ -89,4 +124,15 @@ async function handleRemoveMember(userId: string) {
 .page-links { display: flex; gap: 1rem; flex-wrap: wrap; }
 .page-link { font-size: 0.9rem; font-weight: 600; color: #aaa; text-decoration: none; padding: 0.5rem 0.9rem; border: 1px solid #2a2a2a; border-radius: 7px; transition: border-color 0.15s, color 0.15s; }
 .page-link:hover { border-color: #444; color: #f0f0f0; }
+.danger-zone { border-color: #f8717130; }
+.danger-text { margin: 0; font-size: 0.85rem; color: #999; }
+.danger-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.confirm-text { font-size: 0.85rem; color: #ccc; }
+.danger-btn { font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.9rem; border-radius: 7px; border: 1px solid #f8717150; color: #f87171; background: none; cursor: pointer; transition: background 0.15s; }
+.danger-btn:hover:not(:disabled) { background: rgba(248, 113, 113, 0.1); }
+.danger-btn.confirm { background: rgba(248, 113, 113, 0.15); }
+.danger-btn.cancel { color: #999; border-color: #2a2a2a; }
+.danger-btn.cancel:hover:not(:disabled) { background: #1a1a1a; }
+.danger-btn:disabled { opacity: 0.6; cursor: default; }
+.delete-error { margin: 0; font-size: 0.8rem; color: #f87171; }
 </style>
