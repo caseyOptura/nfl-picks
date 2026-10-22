@@ -7,7 +7,7 @@ const props = defineProps<{
 }>()
 
 // Beyond this many, show one fewer plus a "+n" bubble that opens the rest.
-const MAX_BUBBLES = 4
+const MAX_BUBBLES = 6
 
 const members = computed(() => props.picks.filter(m => m.pickedTeamId === props.teamId))
 const shown = computed(() =>
