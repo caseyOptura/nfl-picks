@@ -153,27 +153,55 @@ function seasonMonths(season: number): string[] {
   ]
 }
 
+type Schedule = Awaited<ReturnType<typeof fetchSchedule>>
+
+/** How long a cached schedule counts as fresh. */
+const SCHEDULE_FRESH_MS = 120_000
+
 /**
  * `fetchSchedule` behind the shared KV cache (the `espn-cache` mount in
  * `nuxt.config.ts`), so the whole site pays for at most one ESPN download every
  * two minutes. Backs both `/api/schedule` and the picks route.
  *
- * Pass the request event so a stale-while-revalidate refresh can finish after
- * the response is sent (Nitro hands it to `waitUntil`).
+ * Fresh entries are returned as-is. Stale ones are returned immediately while
+ * a refresh runs after the response (`waitUntil`). With nothing cached yet, the
+ * request fetches from ESPN itself.
  *
- * Two minutes keeps live scores reasonably fresh while staying under the KV
- * free tier's 1,000 writes a day (at most 720 here). The picks route can rely
- * on it because a game locks at kickoff by clock time, not by ESPN's status.
+ * Deliberately not Nitro's `defineCachedFunction`: that shares one in-flight
+ * fetch between concurrent requests, and on Workers a request cancelled
+ * mid-fetch leaves the shared promise unsettled, so every later request in that
+ * isolate waits on it forever (or fails with error 1101). Here each request
+ * only ever awaits work it started; the cost is that simultaneous misses each
+ * fetch from ESPN.
+ *
+ * Two minutes keeps live scores reasonably fresh while staying near the KV
+ * free tier's 1,000 writes a day. The picks route can rely on it because a game
+ * locks at kickoff by clock time, not by ESPN's status.
  *
  * Picks deliberately do not look the game up on ESPN's core API: Akamai serves
  * `sports.core.api.espn.com` with a 403 to requests from Cloudflare Workers.
  */
-export const cachedSchedule = defineCachedFunction(
-  (_event: H3Event) => fetchSchedule(),
-  {
-    name: 'espn-schedule',
-    base: 'espn-cache',
-    maxAge: 120,
-    getKey: () => 'all',
-  },
-)
+export async function cachedSchedule(event: H3Event): Promise<Schedule> {
+  const storage = useStorage('espn-cache')
+  const key = 'schedule.json'
+
+  // A missing binding or KV outage degrades to fetching uncached.
+  const entry = await storage.getItem<{ mtime: number; value: Schedule }>(key)
+    .catch((error) => {
+      console.error('[espn-cache] read failed', error)
+      return null
+    })
+
+  if (entry && Date.now() - entry.mtime < SCHEDULE_FRESH_MS) return entry.value
+
+  const refresh = fetchSchedule().then(async (value) => {
+    await storage.setItem(key, { mtime: Date.now(), value })
+      .catch(error => console.error('[espn-cache] write failed', error))
+    return value
+  })
+
+  if (!entry) return refresh
+
+  event.waitUntil(refresh.catch(error => console.error('[espn-cache] refresh failed', error)))
+  return entry.value
+}
