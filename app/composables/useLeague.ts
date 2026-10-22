@@ -58,6 +58,19 @@ export function useLeague(leagueId: MaybeRefOrGetter<string>) {
     }
   }
 
+  async function deleteLeague(): Promise<{ ok: boolean; error: string | null }> {
+    const id = toValue(leagueId)
+    if (!id) return { ok: false, error: 'No league id' }
+    try {
+      await authFetch(`/api/leagues/${id}`, { method: 'DELETE' })
+      useChatRealtime().refresh() // drop the deleted league's chat channel
+      return { ok: true, error: null }
+    } catch (e: unknown) {
+      const msg = (e as { data?: { message?: string } })?.data?.message ?? 'Failed to delete league'
+      return { ok: false, error: msg }
+    }
+  }
+
   async function uploadPhoto(file: File): Promise<{ url: string | null; error: string | null }> {
     const client = useSupabaseClient()
     const id = toValue(leagueId)
@@ -79,5 +92,5 @@ export function useLeague(leagueId: MaybeRefOrGetter<string>) {
     return { url, error: null }
   }
 
-  return { league, members, isOwner, pending, error, refresh, updateLeague, removeMember, uploadPhoto }
+  return { league, members, isOwner, pending, error, refresh, updateLeague, removeMember, deleteLeague, uploadPhoto }
 }
