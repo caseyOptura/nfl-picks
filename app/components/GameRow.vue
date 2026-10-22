@@ -66,10 +66,21 @@ defineProps<{ game: GameView }>()
   gap: 0.4rem;
   min-width: 0;
   flex: 1;
+  /* Winner bar on the outer edge; transparent otherwise so nothing shifts. */
+  border-left: 3px solid transparent;
+  padding-left: 0.4rem;
 }
 
 .team-side--home {
   justify-content: flex-end;
+  border-left: none;
+  padding-left: 0;
+  border-right: 3px solid transparent;
+  padding-right: 0.4rem;
+}
+
+.team-side.winner {
+  border-color: #22c55e;
 }
 
 .team-logo {
