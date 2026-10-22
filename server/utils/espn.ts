@@ -5,7 +5,7 @@ import {
   SEASON_TYPE_REGULAR,
 } from '#shared/utils/season'
 import type { H3Event } from 'h3'
-import type { ScoreboardEvent } from '../../app/types/espn'
+import type { LiveGame, ScoreboardEvent } from '../../app/types/espn'
 
 /**
  * Shared access to the ESPN unofficial API.
@@ -81,6 +81,8 @@ export const espnUrls = {
   teamSchedule: (id: string) => `${SITE_API}/teams/${id}/schedule`,
   /** `yyyymm` is a single calendar month, e.g. `202610`. */
   scoreboard: (yyyymm: string) => `${SITE_API}/scoreboard?dates=${yyyymm}&limit=500`,
+  /** The current week only (~250 KB). */
+  currentScoreboard: () => `${SITE_API}/scoreboard`,
   athlete: (id: string) => `${COMMON_API}/athletes/${id}`,
   /** Regular-season stats, one row per season, for a player's whole career. */
   athleteStats: (id: string) => `${COMMON_API}/athletes/${id}/stats?seasontype=${SEASON_TYPE_REGULAR}`,
@@ -105,10 +107,12 @@ function trimEvent(event: ScoreboardEvent): ScoreboardEvent {
       type: event.season.type,
       slug: event.season.slug,
     },
-    status: { type: { name: event.status.type.name } as ScoreboardEvent['status']['type'] },
+    // `state` is 'in' through halftime and quarter breaks, where `name` is not
+    // STATUS_IN_PROGRESS.
+    status: { type: { name: event.status.type.name, state: event.status.type.state } as ScoreboardEvent['status']['type'] },
     competitions: [{
       venue: comp.venue?.fullName ? { fullName: comp.venue.fullName } : undefined,
-      status: { type: { name: comp.status?.type?.name } as ScoreboardEvent['status']['type'] },
+      status: { type: { name: comp.status?.type?.name, state: comp.status?.type?.state } as ScoreboardEvent['status']['type'] },
       competitors: comp.competitors.map(c => ({
         homeAway: c.homeAway,
         score: c.score,
@@ -189,5 +193,60 @@ export function cachedSchedule(event: H3Event) {
     key: 'schedule.json',
     maxAge: 120,
     fetch: fetchSchedule,
+  })
+}
+
+/**
+ * Clock, score and ball state for every game this week that has kicked off,
+ * including ones just gone final (so the client sees a result before the
+ * two-minute schedule cache does). Call `cachedLive` instead.
+ */
+export async function fetchLive(): Promise<LiveGame[]> {
+  const payload = await espnFetch<{ events?: ScoreboardEvent[] }>(espnUrls.currentScoreboard())
+  const live: LiveGame[] = []
+
+  for (const event of payload.events ?? []) {
+    const comp = event.competitions[0]
+    const state = event.status.type.state
+    if (!comp || state === 'pre') continue
+
+    const home = comp.competitors.find(c => c.homeAway === 'home')
+    const away = comp.competitors.find(c => c.homeAway === 'away')
+    const sit = comp.situation
+    // Kickoffs and extra points carry no down.
+    const hasDown = (sit?.down ?? 0) > 0
+
+    live.push({
+      id: event.id,
+      state,
+      statusName: event.status.type.name,
+      period: event.status.period ?? 0,
+      displayClock: event.status.displayClock ?? '',
+      shortDetail: event.status.type.shortDetail,
+      homeScore: home?.score ?? '0',
+      awayScore: away?.score ?? '0',
+      homeWinner: home?.winner ?? false,
+      awayWinner: away?.winner ?? false,
+      possessionTeamId: sit?.possession || undefined,
+      downDistance: hasDown ? sit?.shortDownDistanceText : undefined,
+      ballOn: hasDown ? sit?.possessionText : undefined,
+      isRedZone: sit?.isRedZone ?? false,
+    })
+  }
+
+  return live
+}
+
+/**
+ * `fetchLive` behind a 15-second per-isolate cache. Memory, not KV: refreshing
+ * this often would exhaust the free tier's 1,000 KV writes a day in an
+ * afternoon. A cold isolate costs one ~250 KB ESPN fetch.
+ */
+export function cachedLive(event: H3Event) {
+  return swrCache(event, {
+    storage: 'espn-memory',
+    key: 'live.json',
+    maxAge: 15,
+    fetch: fetchLive,
   })
 }

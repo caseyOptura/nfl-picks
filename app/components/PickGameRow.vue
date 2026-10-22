@@ -13,7 +13,6 @@ function handlePick(teamId: string, locked: boolean) {
 
 function statusLabel(p: PickableGame): string {
   if (p.game.isFinal) return 'FINAL'
-  if (p.game.isInProgress) return 'IN PROGRESS'
   return formatGameTime(p.game.kickoffUtc)
 }
 
@@ -36,7 +35,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
       >
         <span class="side-label">Away</span>
         <img v-if="pickable.game.away.logo" :src="pickable.game.away.logo" :alt="pickable.game.away.abbreviation" class="team-logo" />
-        <span class="team-abbr">{{ pickable.game.away.abbreviation }}</span>
+        <span class="team-abbr">{{ pickable.game.away.abbreviation }} <PossessionIcon v-if="pickable.game.live?.possessionTeamId === pickable.game.away.teamId" /></span>
         <span v-if="pickable.game.away.record" class="team-record">{{ pickable.game.away.record }}</span>
         <span v-if="pickable.game.away.score !== undefined" class="team-score">{{ pickable.game.away.score }}</span>
         <span v-if="isPicked(pickable.game.away, pickable.pickedTeamId) && pickable.correct === true" class="result-icon correct-icon">&#10003;</span>
@@ -52,7 +51,8 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
           <path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </span>
-      <span class="status-text">{{ statusLabel(pickable) }}</span>
+      <LiveGameStatus v-if="pickable.game.isInProgress" :live="pickable.game.live" />
+      <span v-else class="status-text">{{ statusLabel(pickable) }}</span>
     </div>
 
     <div class="team-col">
@@ -67,7 +67,7 @@ function isPicked(side: GameSideView, pickedTeamId: string | null): boolean {
       >
         <span class="side-label">Home</span>
         <img v-if="pickable.game.home.logo" :src="pickable.game.home.logo" :alt="pickable.game.home.abbreviation" class="team-logo" />
-        <span class="team-abbr">{{ pickable.game.home.abbreviation }}</span>
+        <span class="team-abbr">{{ pickable.game.home.abbreviation }} <PossessionIcon v-if="pickable.game.live?.possessionTeamId === pickable.game.home.teamId" /></span>
         <span v-if="pickable.game.home.record" class="team-record">{{ pickable.game.home.record }}</span>
         <span v-if="pickable.game.home.score !== undefined" class="team-score">{{ pickable.game.home.score }}</span>
         <span v-if="isPicked(pickable.game.home, pickable.pickedTeamId) && pickable.correct === true" class="result-icon correct-icon">&#10003;</span>

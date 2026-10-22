@@ -30,7 +30,11 @@ export interface EspnStatusType {
   completed: boolean
   shortDetail: string
 }
-export interface EspnStatus { type: EspnStatusType }
+export interface EspnStatus {
+  type: EspnStatusType
+  period?: number         // 1–4, 5+ is overtime
+  displayClock?: string   // '12:34'
+}
 export interface EspnVenueAddress { city?: string; state?: string }
 export interface EspnVenue { fullName?: string; address?: EspnVenueAddress }
 export interface ScoreboardCompetitorTeam {
@@ -57,10 +61,19 @@ export interface ScoreboardCompetitor {
   records?: ScoreboardRecord[]
   team: ScoreboardCompetitorTeam
 }
+/** Ball state of an in-progress game. Absent before kickoff and after the final whistle. */
+export interface ScoreboardSituation {
+  down?: number                   // 1–4; -1 or absent on kickoffs and extra points
+  shortDownDistanceText?: string  // '3rd & 7'
+  possessionText?: string         // 'KC 25'
+  possession?: string             // team id
+  isRedZone?: boolean
+}
 export interface ScoreboardCompetition {
   competitors: ScoreboardCompetitor[]
   venue?: EspnVenue
   status: EspnStatus
+  situation?: ScoreboardSituation
 }
 export interface ScoreboardSeason {
   year: number
@@ -234,4 +247,25 @@ export interface GameView {
   venue?: string
   home: GameSideView
   away: GameSideView
+  /** Clock and ball state while the game is under way, from `/api/live`. */
+  live?: LiveGame
+}
+
+/** One game from `/api/live`: a game this week that has kicked off. */
+export interface LiveGame {
+  id: string
+  state: 'in' | 'post' | string
+  statusName: string
+  period: number
+  displayClock: string
+  /** ESPN's own status line, e.g. 'Halftime', 'End of 3rd'. */
+  shortDetail: string
+  homeScore: string
+  awayScore: string
+  homeWinner: boolean
+  awayWinner: boolean
+  possessionTeamId?: string
+  downDistance?: string   // '3rd & 7'
+  ballOn?: string         // 'KC 25'
+  isRedZone: boolean
 }
