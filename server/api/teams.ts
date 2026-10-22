@@ -1,7 +1,8 @@
 import { espnFetch, espnUrls } from '../utils/espn'
 
-export default defineCachedEventHandler(async () => espnFetch(espnUrls.teams()), {
-  name: 'espn-teams',
+export default defineEventHandler(event => swrCache(event, {
+  storage: 'espn-memory',
+  key: 'teams',
   maxAge: 60 * 60,
-  getKey: () => 'all',
-})
+  fetch: () => espnFetch(espnUrls.teams()),
+}))

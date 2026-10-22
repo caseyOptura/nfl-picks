@@ -38,18 +38,36 @@ export class EspnError extends Error {
   }
 }
 
+/**
+ * Per-attempt time limit. ESPN occasionally accepts a request from Workers and
+ * never answers; without a limit the page waits until the browser gives up.
+ * Healthy responses take well under a second, even the multi-MB scoreboard.
+ */
+const ATTEMPT_TIMEOUT_MS = 5000
+
 export async function espnFetch<T>(url: string, { retries = 2 }: { retries?: number } = {}): Promise<T> {
   let lastStatus = 0
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url, {
-      headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
-    })
+    try {
+      // The signal also covers reading the body, where a stall can happen too.
+      const res = await fetch(url, {
+        headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
+        signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+      })
 
-    if (res.ok) return await res.json() as T
+      if (res.ok) return await res.json() as T
 
-    lastStatus = res.status
-    if (!RETRYABLE.has(res.status) || attempt === retries) break
+      lastStatus = res.status
+      if (!RETRYABLE.has(res.status)) break
+    }
+    catch (error) {
+      if ((error as Error)?.name !== 'TimeoutError') throw error
+      console.warn(`[espn] no response within ${ATTEMPT_TIMEOUT_MS}ms (attempt ${attempt + 1}): ${url}`)
+      lastStatus = 504
+    }
+
+    if (attempt === retries) break
     // Brief backoff — Akamai blocks are usually per-request, not sticky.
     await new Promise(resolve => setTimeout(resolve, 150 * 2 ** attempt))
   }
@@ -153,26 +171,10 @@ function seasonMonths(season: number): string[] {
   ]
 }
 
-type Schedule = Awaited<ReturnType<typeof fetchSchedule>>
-
-/** How long a cached schedule counts as fresh. */
-const SCHEDULE_FRESH_MS = 120_000
-
 /**
- * `fetchSchedule` behind the shared KV cache (the `espn-cache` mount in
- * `nuxt.config.ts`), so the whole site pays for at most one ESPN download every
- * two minutes. Backs both `/api/schedule` and the picks route.
- *
- * Fresh entries are returned as-is. Stale ones are returned immediately while
- * a refresh runs after the response (`waitUntil`). With nothing cached yet, the
- * request fetches from ESPN itself.
- *
- * Deliberately not Nitro's `defineCachedFunction`: that shares one in-flight
- * fetch between concurrent requests, and on Workers a request cancelled
- * mid-fetch leaves the shared promise unsettled, so every later request in that
- * isolate waits on it forever (or fails with error 1101). Here each request
- * only ever awaits work it started; the cost is that simultaneous misses each
- * fetch from ESPN.
+ * `fetchSchedule` behind the shared KV cache (`espn-cache`), so the whole site
+ * pays for at most one ESPN download every two minutes. Backs both
+ * `/api/schedule` and the picks route. See `swrCache` for the caching rules.
  *
  * Two minutes keeps live scores reasonably fresh while staying near the KV
  * free tier's 1,000 writes a day. The picks route can rely on it because a game
@@ -181,27 +183,11 @@ const SCHEDULE_FRESH_MS = 120_000
  * Picks deliberately do not look the game up on ESPN's core API: Akamai serves
  * `sports.core.api.espn.com` with a 403 to requests from Cloudflare Workers.
  */
-export async function cachedSchedule(event: H3Event): Promise<Schedule> {
-  const storage = useStorage('espn-cache')
-  const key = 'schedule.json'
-
-  // A missing binding or KV outage degrades to fetching uncached.
-  const entry = await storage.getItem<{ mtime: number; value: Schedule }>(key)
-    .catch((error) => {
-      console.error('[espn-cache] read failed', error)
-      return null
-    })
-
-  if (entry && Date.now() - entry.mtime < SCHEDULE_FRESH_MS) return entry.value
-
-  const refresh = fetchSchedule().then(async (value) => {
-    await storage.setItem(key, { mtime: Date.now(), value })
-      .catch(error => console.error('[espn-cache] write failed', error))
-    return value
+export function cachedSchedule(event: H3Event) {
+  return swrCache(event, {
+    storage: 'espn-cache',
+    key: 'schedule.json',
+    maxAge: 120,
+    fetch: fetchSchedule,
   })
-
-  if (!entry) return refresh
-
-  event.waitUntil(refresh.catch(error => console.error('[espn-cache] refresh failed', error)))
-  return entry.value
 }
