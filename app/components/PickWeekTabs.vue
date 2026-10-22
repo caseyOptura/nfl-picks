@@ -68,8 +68,13 @@ function onKeydown(e: KeyboardEvent) {
   display: flex;
   gap: 0.25rem;
   overflow-x: auto;
+  /* Horizontal only: without this, iOS lets the strip rubber-band vertically. */
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
-  border-bottom: 1px solid #222;
+  /* An inset shadow rather than a border, so the active tab's underline paints
+     over it without the tabs overflowing the strip. */
+  box-shadow: inset 0 -1px #222;
   /* Fade the edges so it is clear the strip scrolls. */
   mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
   padding: 0 1rem;
@@ -87,7 +92,6 @@ function onKeydown(e: KeyboardEvent) {
   align-items: center;
   gap: 0.4rem;
   padding: 0.6rem 0.75rem 0.55rem;
-  margin-bottom: -1px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
