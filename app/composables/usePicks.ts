@@ -46,6 +46,28 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
     return sections
   })
 
+  // The week to open on: the first one with a game still to come or under way.
+  // Keyed off kickoff time rather than "not final" so a cancelled game, which
+  // never goes final, cannot hold the view on an old week. Before the season
+  // that is week 1; after the Super Bowl, the last section.
+  const currentWeek = computed<number | string | null>(() => {
+    const sections = byWeek.value
+    if (sections.length === 0) return null
+    const now = Date.now()
+    const live = sections.find(s =>
+      s.games.some(pg => pg.game.isInProgress || new Date(pg.game.kickoffUtc).getTime() > now),
+    )
+    return (live ?? sections[sections.length - 1]!).week
+  })
+
+  // Weeks with at least one game still open that the user hasn't picked.
+  // Recomputes as picks are made, so a week's marker clears on its last pick.
+  const weeksNeedingPicks = computed(() => new Set(
+    byWeek.value
+      .filter(s => s.games.some(pg => !pg.locked && pg.pickedTeamId === null))
+      .map(s => s.week),
+  ))
+
   async function refresh() {
     const id = toValue(leagueId)
     const year = toValue(seasonYear)
@@ -146,5 +168,5 @@ export function usePicks(leagueId: MaybeRefOrGetter<string>, seasonYear: MaybeRe
     { immediate: true }
   )
 
-  return { games, byWeek, pending, error, refresh, submitPick }
+  return { games, byWeek, currentWeek, weeksNeedingPicks, pending, error, refresh, submitPick }
 }
